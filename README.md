@@ -1,4 +1,5 @@
 # Microsoft Azure Container Service Engine - Builds Docker Enabled Clusters
+
 ## Overview
 
 The Azure Container Service Engine (`acs-engine`) generates ARM (Azure Resource Manager) templates for Docker enabled clusters on Microsoft Azure with your choice of DC/OS, Kubernetes, or Swarm orchestrators. The input to the tool is a cluster definition. The cluster definition is very similar to (in many cases the same as) the ARM template syntax used to deploy a Microsoft Azure Container Service cluster.
@@ -9,7 +10,8 @@ The cluster definition file enables the following customizations to your Docker 
  * standard or premium VM Sizes,
  * node count, 
  * Virtual Machine ScaleSets or Availability Sets,
- * Storage Account Disks or Managed Disks (under private preview),* Docker cluster sizes of 1200
+ * Storage Account Disks or Managed Disks (under private preview),
+* Docker cluster sizes of 1200
 * Custom VNET
 
 ## User guides
