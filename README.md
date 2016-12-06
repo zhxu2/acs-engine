@@ -1,5 +1,4 @@
 # Microsoft Azure Container Service Engine - Builds Docker Enabled Clusters
-
 ## Overview
 
 The Azure Container Service Engine (`acs-engine`) generates ARM (Azure Resource Manager) templates for Docker enabled clusters on Microsoft Azure with your choice of DC/OS, Kubernetes, or Swarm orchestrators. The input to the tool is a cluster definition. The cluster definition is very similar to (in many cases the same as) the ARM template syntax used to deploy a Microsoft Azure Container Service cluster.
@@ -10,8 +9,7 @@ The cluster definition file enables the following customizations to your Docker 
  * standard or premium VM Sizes,
  * node count, 
  * Virtual Machine ScaleSets or Availability Sets,
- * Storage Account Disks or Managed Disks (under private preview),
-* Docker cluster sizes of 1200
+ * Storage Account Disks or Managed Disks (under private preview),* Docker cluster sizes of 1200
 * Custom VNET
 
 ## User guides
@@ -21,8 +19,7 @@ The cluster definition file enables the following customizations to your Docker 
 * [DC/OS Walkthrough](docs/dcos.md) - shows how to create a DC/OS enabled Docker cluster on Azure
 * [Kubernetes Walkthrough](docs/kubernetes.md) - shows how to create a Kubernetes enabled Docker cluster on Azure
 * [Swarm Walkthrough](docs/swarm.md) - shows how to create a Swarm enabled Docker cluster on Azure
-* [Custom VNET](examples/vnet) - shows how to use a custom VNET 
-* [Attached Disks](examples/disks-storageaccount) - shows how to attach up to 4 disks per node
+* [Custom VNET](examples/vnet) - shows how to use a custom VNET * [Attached Disks](examples/disks-storageaccount) - shows how to attach up to 4 disks per node
 * [Managed Disks](examples/disks-managed) (under private preview) - shows how to use managed disks 
 * [Large Clusters](examples/largeclusters) - shows how to create cluster sizes of up to 1200 nodes
 
@@ -42,17 +39,18 @@ Please follow these instructions before submitting a PR:
 Usage is best demonstrated with an example:
 
 ```shell
-$ vim examples/kubernetes.classic.json
+# open an example template file (dcos.json, swarm.json or kubernetes.json)
+$ vim examples/kubernetes.json
 
 # insert your preferred, unique DNS prefix
 # insert your SSH public key
 
-$ ./acs-engine examples/kubernetes.classic.json
+$ ./acs-engine examples/kubernetes.json
 ```
 
 This produces a new directory inside `_output/` that contains an ARM template
-for deploying Kubernetes into Azure. (In the case of Kubernetes, some additional
-needed assets are generated and placed in the output directory.)
+for deploying your chosen orchestrator solution into Azure. In the case of Kubernetes,
+some additional needed assets are generated and placed in the output directory.
 
 ## Deployment Usage
 
