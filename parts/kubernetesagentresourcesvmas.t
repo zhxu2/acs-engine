@@ -124,6 +124,31 @@
                 ]
               }
             }
+            {{if .HasSecrets}}
+            ,
+            "secrets":[
+            {{range  $vIndex, $vault := .Secrets}}
+              {{if $vIndex}}
+              ,
+              {{end}}
+              {
+                "sourceVault":{
+                  "id":"{{.SourceVault.ID}}"
+                },
+                "vaultCertificates":[
+                {{range $cIndex, $cert := $vault.VaultCertificates}}
+                  {{if $cIndex}}
+                  ,
+                  {{end}}
+                  {
+                    "certificateUrl" :"{{$cert.CertificateURL}}"
+                  }
+                {{end}}
+                ]
+              }
+            {{end}}
+            ]
+            {{end}}
         }, 
         "storageProfile": {
           {{GetDataDisks .}}

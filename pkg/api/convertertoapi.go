@@ -164,6 +164,12 @@ func convertVLabsMasterProfile(vlabs *vlabs.MasterProfile, api *MasterProfile) {
 	api.FirstConsecutiveStaticIP = vlabs.FirstConsecutiveStaticIP
 	api.Subnet = vlabs.GetSubnet()
 	api.FQDN = vlabs.FQDN
+	api.Secrets = []KeyVaultSecrets{}
+	for _, s := range vlabs.Secrets {
+		secret := &KeyVaultSecrets{}
+		convertVLabsKeyVaultSecrets(&s, secret)
+		api.Secrets = append(api.Secrets, *secret)
+	}
 }
 
 func convertV20160330AgentPoolProfile(v20160330 *v20160330.AgentPoolProfile, api *AgentPoolProfile) {
@@ -191,6 +197,23 @@ func convertVLabsAgentPoolProfile(vlabs *vlabs.AgentPoolProfile, api *AgentPoolP
 	api.VnetSubnetID = vlabs.VnetSubnetID
 	api.Subnet = vlabs.GetSubnet()
 	api.FQDN = vlabs.FQDN
+	api.Secrets = []KeyVaultSecrets{}
+	for _, s := range vlabs.Secrets {
+		secret := &KeyVaultSecrets{}
+		convertVLabsKeyVaultSecrets(&s, secret)
+		api.Secrets = append(api.Secrets, *secret)
+	}
+}
+
+func convertVLabsKeyVaultSecrets(vlabs *vlabs.KeyVaultSecrets, api *KeyVaultSecrets) {
+	api.SourceVault = KeyVaultID{ID: vlabs.SourceVault.ID}
+	api.VaultCertificates = []KeyVaultCertificate{}
+	for _, c := range vlabs.VaultCertificates {
+		cert := KeyVaultCertificate{}
+		cert.CertificateStore = c.CertificateStore
+		cert.CertificateURL = c.CertificateURL
+		api.VaultCertificates = append(api.VaultCertificates, cert)
+	}
 }
 
 func convertV20160330DiagnosticsProfile(v20160330 *v20160330.DiagnosticsProfile, api *DiagnosticsProfile) {

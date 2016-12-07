@@ -134,12 +134,13 @@ type KubernetesConfig struct {
 
 // MasterProfile represents the definition of the master cluster
 type MasterProfile struct {
-	Count                    int    `json:"count"`
-	DNSPrefix                string `json:"dnsPrefix"`
-	VMSize                   string `json:"vmSize"`
-	VnetSubnetID             string `json:"vnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP string `json:"firstConsecutiveStaticIP,omitempty"`
-	Subnet                   string `json:"subnet"`
+	Count                    int               `json:"count"`
+	DNSPrefix                string            `json:"dnsPrefix"`
+	VMSize                   string            `json:"vmSize"`
+	VnetSubnetID             string            `json:"vnetSubnetID,omitempty"`
+	FirstConsecutiveStaticIP string            `json:"firstConsecutiveStaticIP,omitempty"`
+	Subnet                   string            `json:"subnet"`
+	Secrets                  []KeyVaultSecrets `json:"secrets,omitempty"`
 
 	// Master LB public endpoint/FQDN with port
 	// The format will be FQDN:2376
@@ -149,17 +150,18 @@ type MasterProfile struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                string `json:"name"`
-	Count               int    `json:"count"`
-	VMSize              string `json:"vmSize"`
-	DNSPrefix           string `json:"dnsPrefix,omitempty"`
-	OSType              OSType `json:"osType,omitempty"`
-	Ports               []int  `json:"ports,omitempty"`
-	AvailabilityProfile string `json:"availabilityProfile"`
-	StorageProfile      string `json:"storageProfile,omitempty"`
-	DiskSizesGB         []int  `json:"diskSizesGB,omitempty"`
-	VnetSubnetID        string `json:"vnetSubnetID,omitempty"`
-	Subnet              string `json:"subnet"`
+	Name                string            `json:"name"`
+	Count               int               `json:"count"`
+	VMSize              string            `json:"vmSize"`
+	DNSPrefix           string            `json:"dnsPrefix,omitempty"`
+	OSType              OSType            `json:"osType,omitempty"`
+	Ports               []int             `json:"ports,omitempty"`
+	AvailabilityProfile string            `json:"availabilityProfile"`
+	StorageProfile      string            `json:"storageProfile,omitempty"`
+	DiskSizesGB         []int             `json:"diskSizesGB,omitempty"`
+	VnetSubnetID        string            `json:"vnetSubnetID,omitempty"`
+	Subnet              string            `json:"subnet"`
+	Secrets             []KeyVaultSecrets `json:"secrets,omitempty"`
 
 	FQDN string `json:"fqdn,omitempty"`
 }
@@ -197,6 +199,29 @@ type JumpboxProfile struct {
 	// The format will be FQDN:2376
 	// Not used during PUT, returned as part of GET
 	FQDN string `json:"fqdn,omitempty"`
+}
+
+// KeyVaultSecrets specifies certificates to install on the pool
+// of machines from a given key vault
+// the key vault specified must have been granted read permissions to CRP
+type KeyVaultSecrets struct {
+	SourceVault       KeyVaultID            `json:"sourceVault,omitempty"`
+	VaultCertificates []KeyVaultCertificate `json:"vaultCertificates,omitempty"`
+}
+
+// KeyVaultID specifies a key vault
+type KeyVaultID struct {
+	ID string `json:"id,omitempty"`
+}
+
+// KeyVaultCertificate specifies a certificate to install
+// On Linux, the certificate file is placed under the /var/lib/waagent directory
+// with the file name <UppercaseThumbprint>.crt for the X509 certificate file
+// and <UppercaseThumbprint>.prv for the private key. Both of these files are .pem formatted.
+// On windows the certificate will be saved in the specified store.
+type KeyVaultCertificate struct {
+	CertificateURL   string `json:"certificateUrl,omitempty"`
+	CertificateStore string `json:"certificateStore,omitempty"`
 }
 
 // OSType represents OS types of agents
@@ -253,6 +278,11 @@ func (m *MasterProfile) IsCustomVNET() bool {
 	return len(m.VnetSubnetID) > 0
 }
 
+// HasSecrets returns true if the customer specified secrets to install
+func (m *MasterProfile) HasSecrets() bool {
+	return len(m.Secrets) > 0
+}
+
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -281,4 +311,9 @@ func (a *AgentPoolProfile) IsStorageAccount() bool {
 // HasDisks returns true if the customer specified disks
 func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
+}
+
+// HasSecrets returns true if the customer specified secrets to install
+func (a *AgentPoolProfile) HasSecrets() bool {
+	return len(a.Secrets) > 0
 }

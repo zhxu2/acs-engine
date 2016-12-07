@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"regexp"
 )
 
@@ -35,6 +36,9 @@ func (m *MasterProfile) Validate() error {
 		return e
 	}
 	if e := validateName(m.VMSize, "MasterProfile.VMSize"); e != nil {
+		return e
+	}
+	if e := validateKeyVaultSecrets(m.Secrets); e != nil {
 		return e
 	}
 	return nil
@@ -91,6 +95,26 @@ func (a *AgentPoolProfile) Validate() error {
 	}
 	if len(a.Ports) == 0 && len(a.DNSPrefix) > 0 {
 		return fmt.Errorf("AgentPoolProfile.Ports must be non empty when AgentPoolProfile.DNSPrefix is specified")
+	}
+	if e := validateKeyVaultSecrets(a.Secrets); e != nil {
+		return e
+	}
+	return nil
+}
+
+func validateKeyVaultSecrets(secrets []KeyVaultSecrets) error {
+	for _, s := range secrets {
+		if len(s.VaultCertificates) == 0 {
+			return fmt.Errorf("Invalid KeyVaultSecrets must have none empty VaultCertificates")
+		}
+		if s.SourceVault.ID == "" {
+			return fmt.Errorf("KeyVaultSecrets must have a SourceVault.ID")
+		}
+		for _, c := range s.VaultCertificates {
+			if _, e := url.Parse(c.CertificateURL); e != nil {
+				return fmt.Errorf("Certificate url was invalid. recieved error %s", e)
+			}
+		}
 	}
 	return nil
 }

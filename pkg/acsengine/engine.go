@@ -383,6 +383,9 @@ func (t *TemplateGenerator) getTemplateFuncMap(properties *api.Properties) map[s
 			str = escapeSingleLine(str)
 			return fmt.Sprintf("\"customData\": \"[base64(concat('%s',variables('agentRunCmdFile'),variables('agentRunCmd')))]\",", str)
 		},
+		"HasSecrects": func(profile *api.AgentPoolProfile) bool {
+			return profile.Secrets != nil
+		},
 		"GetWinAgentSwarmCustomData": func() string {
 			str := getBase64CustomScript(swarmWindowsProvision)
 			return fmt.Sprintf("\"customData\": \"%s\"", str)
