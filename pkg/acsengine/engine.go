@@ -217,6 +217,12 @@ func getParameters(properties *api.Properties) (map[string]interface{}, error) {
 	addValue(parametersMap, "firstConsecutiveStaticIP", properties.MasterProfile.FirstConsecutiveStaticIP)
 	addValue(parametersMap, "masterVMSize", properties.MasterProfile.VMSize)
 	addValue(parametersMap, "sshRSAPublicKey", properties.LinuxProfile.SSH.PublicKeys[0].KeyData)
+	for i, s := range properties.LinuxProfile.Secrets {
+		addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%d", i), s.SourceVault.ID)
+		for j, c := range s.VaultCertificates {
+			addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
+		}
+	}
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.OrchestratorType == api.Kubernetes {
@@ -251,6 +257,13 @@ func getParameters(properties *api.Properties) (map[string]interface{}, error) {
 	if properties.HasWindows() {
 		addValue(parametersMap, "windowsAdminUsername", properties.WindowsProfile.AdminUsername)
 		addValue(parametersMap, "windowsAdminPassword", properties.WindowsProfile.AdminPassword)
+		for i, s := range properties.WindowsProfile.Secrets {
+			addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%d", i), s.SourceVault.ID)
+			for j, c := range s.VaultCertificates {
+				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
+				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateStore%d", i, j), c.CertificateStore)
+			}
+		}
 	}
 
 	return parametersMap, nil
@@ -383,9 +396,6 @@ func (t *TemplateGenerator) getTemplateFuncMap(properties *api.Properties) map[s
 			str = escapeSingleLine(str)
 			return fmt.Sprintf("\"customData\": \"[base64(concat('%s',variables('agentRunCmdFile'),variables('agentRunCmd')))]\",", str)
 		},
-		"HasSecrects": func(profile *api.AgentPoolProfile) bool {
-			return profile.Secrets != nil
-		},
 		"GetWinAgentSwarmCustomData": func() string {
 			str := getBase64CustomScript(swarmWindowsProvision)
 			return fmt.Sprintf("\"customData\": \"%s\"", str)
@@ -404,6 +414,12 @@ func (t *TemplateGenerator) getTemplateFuncMap(properties *api.Properties) map[s
 				}
 			}
 			return false
+		},
+		"HasLinuxSecrets": func() bool {
+			return properties.LinuxProfile.HasSecrets()
+		},
+		"HasWindowsSecrets": func() bool {
+			return properties.WindowsProfile.HasSecrets()
 		},
 		// inspired by http://stackoverflow.com/questions/18276173/calling-a-template-with-several-pipeline-parameters/18276968#18276968
 		"dict": func(values ...interface{}) (map[string]interface{}, error) {

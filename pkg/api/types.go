@@ -92,12 +92,14 @@ type LinuxProfile struct {
 			KeyData string `json:"keyData"`
 		} `json:"publicKeys"`
 	} `json:"ssh"`
+	Secrets []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
-	AdminUsername string `json:"adminUsername"`
-	AdminPassword string `json:"adminPassword"`
+	AdminUsername string            `json:"adminUsername"`
+	AdminPassword string            `json:"adminPassword"`
+	Secrets       []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // ProvisioningState represents the current state of container service resource.
@@ -134,13 +136,12 @@ type KubernetesConfig struct {
 
 // MasterProfile represents the definition of the master cluster
 type MasterProfile struct {
-	Count                    int               `json:"count"`
-	DNSPrefix                string            `json:"dnsPrefix"`
-	VMSize                   string            `json:"vmSize"`
-	VnetSubnetID             string            `json:"vnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP string            `json:"firstConsecutiveStaticIP,omitempty"`
-	Subnet                   string            `json:"subnet"`
-	Secrets                  []KeyVaultSecrets `json:"secrets,omitempty"`
+	Count                    int    `json:"count"`
+	DNSPrefix                string `json:"dnsPrefix"`
+	VMSize                   string `json:"vmSize"`
+	VnetSubnetID             string `json:"vnetSubnetID,omitempty"`
+	FirstConsecutiveStaticIP string `json:"firstConsecutiveStaticIP,omitempty"`
+	Subnet                   string `json:"subnet"`
 
 	// Master LB public endpoint/FQDN with port
 	// The format will be FQDN:2376
@@ -150,18 +151,17 @@ type MasterProfile struct {
 
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                string            `json:"name"`
-	Count               int               `json:"count"`
-	VMSize              string            `json:"vmSize"`
-	DNSPrefix           string            `json:"dnsPrefix,omitempty"`
-	OSType              OSType            `json:"osType,omitempty"`
-	Ports               []int             `json:"ports,omitempty"`
-	AvailabilityProfile string            `json:"availabilityProfile"`
-	StorageProfile      string            `json:"storageProfile,omitempty"`
-	DiskSizesGB         []int             `json:"diskSizesGB,omitempty"`
-	VnetSubnetID        string            `json:"vnetSubnetID,omitempty"`
-	Subnet              string            `json:"subnet"`
-	Secrets             []KeyVaultSecrets `json:"secrets,omitempty"`
+	Name                string `json:"name"`
+	Count               int    `json:"count"`
+	VMSize              string `json:"vmSize"`
+	DNSPrefix           string `json:"dnsPrefix,omitempty"`
+	OSType              OSType `json:"osType,omitempty"`
+	Ports               []int  `json:"ports,omitempty"`
+	AvailabilityProfile string `json:"availabilityProfile"`
+	StorageProfile      string `json:"storageProfile,omitempty"`
+	DiskSizesGB         []int  `json:"diskSizesGB,omitempty"`
+	VnetSubnetID        string `json:"vnetSubnetID,omitempty"`
+	Subnet              string `json:"subnet"`
 
 	FQDN string `json:"fqdn,omitempty"`
 }
@@ -278,11 +278,6 @@ func (m *MasterProfile) IsCustomVNET() bool {
 	return len(m.VnetSubnetID) > 0
 }
 
-// HasSecrets returns true if the customer specified secrets to install
-func (m *MasterProfile) HasSecrets() bool {
-	return len(m.Secrets) > 0
-}
-
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -314,6 +309,11 @@ func (a *AgentPoolProfile) HasDisks() bool {
 }
 
 // HasSecrets returns true if the customer specified secrets to install
-func (a *AgentPoolProfile) HasSecrets() bool {
-	return len(a.Secrets) > 0
+func (w *WindowsProfile) HasSecrets() bool {
+	return len(w.Secrets) > 0
+}
+
+// HasSecrets returns true if the customer specified secrets to install
+func (l *LinuxProfile) HasSecrets() bool {
+	return len(l.Secrets) > 0
 }

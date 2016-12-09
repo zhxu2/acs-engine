@@ -467,6 +467,18 @@
       },
       "type": "string"
     },
+    "linuxKeyVaultID0": {
+      "metadata": {
+        "description": "KeyVaultId0 to install certificates from on linux machines."
+      },
+      "type": "string"
+    },
+    "linuxKeyVaultID0CertificateURL0": {
+      "metadata": {
+        "description": "CertificateURL0 to install from KeyVaultId0 on linux machines."
+      },
+      "type": "string"
+    },
     "masterEndpointDNSNamePrefix": {
       "metadata": {
         "description": "Sets the Domain name label for the master IP Address.  The concatenation of the domain name label and the regional DNS zone make up the fully qualified domain name associated with the public IP address."
@@ -605,6 +617,18 @@
     "kubeServiceCidr": "10.0.0.0/16",
     "kubectlVersion": "[parameters('kubectlVersion')]",
     "kubernetesHyperkubeSpec": "[parameters('kubernetesHyperkubeSpec')]",
+    "linuxProfileSecrets": [
+      {
+        "sourceVault": {
+          "id": "[parameters('linuxKeyVaultID0')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateUrl": "[parameters('linuxKeyVaultID0CertificateURL0')]"
+          }
+        ]
+      }
+    ],
     "location": "[resourceGroup().location]",
     "masterAvailabilitySet": "master-availabilityset",
     "masterCount": 1,
@@ -1019,7 +1043,8 @@
                 }
               ]
             }
-          }
+          },
+          "secrets": "[variables('linuxProfileSecrets')]"
         },
         "storageProfile": {
           "imageReference": {
@@ -1158,18 +1183,7 @@
               ]
             }
           },
-          "secrets": [
-            {
-              "sourceVault": {
-                "id": "vaultId"
-              },
-              "vaultCertificates": [
-                {
-                  "certificateUrl": "http://url2"
-                }
-              ]
-            }
-          ]
+          "secrets": "[variables('linuxProfileSecrets')]"
         },
         "storageProfile": {
           "imageReference": {
@@ -1485,18 +1499,7 @@
               ]
             }
           },
-          "secrets": [
-            {
-              "sourceVault": {
-                "id": "vaultId"
-              },
-              "vaultCertificates": [
-                {
-                  "certificateUrl": "http://url1"
-                }
-              ]
-            }
-          ]
+          "secrets": "[variables('linuxProfileSecrets')]"
         },
         "storageProfile": {
           "imageReference": {

@@ -201,32 +201,10 @@
           "adminUsername": "[variables('windowsAdminUsername')]",
           "adminPassword": "[variables('windowsAdminPassword')]",
           {{GetWinAgentSwarmCustomData}}
-          {{if .HasSecrets}}
-          ,
-          "secrets":[
-          {{range  $vIndex, $vault := .Secrets}}
-            {{if $vIndex}}
-            ,
+            {{if HasWindowsSecrets}}
+              ,
+              "secrets": "[variables('windowsProfileSecrets')]"
             {{end}}
-            {
-              "sourceVault":{
-                "id":"{{.SourceVault.ID}}"
-              },
-              "vaultCertificates":[
-              {{range $cIndex, $cert := $vault.VaultCertificates}}
-                {{if $cIndex}}
-                ,
-                {{end}}
-                {
-                  "certificateUrl" :"{{$cert.CertificateURL}}",
-                  "certificateStore": "{{$cert.CertificateStore}}"
-                }
-              {{end}}
-              ]
-            }
-          {{end}}
-          ]
-          {{end}}
         }, 
         "storageProfile": {
           {{GetDataDisks .}}

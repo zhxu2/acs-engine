@@ -35,6 +35,18 @@
   "linuxAdminUsername": {
     "value": "azureuser"
   },
+  "linuxKeyVaultID0": {
+    "value": "vaultId"
+  },
+  "linuxKeyVaultID0CertificateURL0": {
+    "value": "http://url2"
+  },
+  "linuxKeyVaultID1": {
+    "value": "vaultId2"
+  },
+  "linuxKeyVaultID1CertificateURL0": {
+    "value": "http://url1"
+  },
   "masterEndpointDNSNamePrefix": {
     "value": "masterdns1"
   },
@@ -52,5 +64,20 @@
   },
   "windowsAdminUsername": {
     "value": "azureuser"
+  },
+  "windowsKeyVaultID0": {
+    "value": "vaultId"
+  },
+  "windowsKeyVaultID0CertificateStore0": {
+    "value": "store"
+  },
+  "windowsKeyVaultID0CertificateStore1": {
+    "value": "store"
+  },
+  "windowsKeyVaultID0CertificateURL0": {
+    "value": "http://url3"
+  },
+  "windowsKeyVaultID0CertificateURL1": {
+    "value": "http://url4"
   }
 }

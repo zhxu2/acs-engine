@@ -417,6 +417,18 @@
       },
       "type": "string"
     },
+    "linuxKeyVaultID0": {
+      "metadata": {
+        "description": "KeyVaultId0 to install certificates from on linux machines."
+      },
+      "type": "string"
+    },
+    "linuxKeyVaultID0CertificateURL0": {
+      "metadata": {
+        "description": "CertificateURL0 to install from KeyVaultId0 on linux machines."
+      },
+      "type": "string"
+    },
     "masterEndpointDNSNamePrefix": {
       "metadata": {
         "description": "Sets the Domain name label for the master IP Address.  The concatenation of the domain name label and the regional DNS zone make up the fully qualified domain name associated with the public IP address."
@@ -543,6 +555,18 @@
     "apiVersionDefault": "2016-03-30",
     "apiVersionStorage": "2015-06-15",
     "dataStorageAccountPrefixSeed": 97,
+    "linuxProfileSecrets": [
+      {
+        "sourceVault": {
+          "id": "[parameters('linuxKeyVaultID0')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateUrl": "[parameters('linuxKeyVaultID0CertificateURL0')]"
+          }
+        ]
+      }
+    ],
     "masterAvailabilitySet": "[concat(variables('orchestratorName'), '-master-availabilitySet-', variables('nameSuffix'))]",
     "masterCount": 3,
     "masterEndpointDNSNamePrefix": "[tolower(parameters('masterEndpointDNSNamePrefix'))]",
@@ -933,7 +957,8 @@
                   }
                 ]
               }
-            }
+            },
+            "secrets": "[variables('linuxProfileSecrets')]"
           },
           "storageProfile": {
             "imageReference": {
@@ -1223,18 +1248,7 @@
                 ]
               }
             },
-            "secrets": [
-              {
-                "sourceVault": {
-                  "id": "vaultId"
-                },
-                "vaultCertificates": [
-                  {
-                    "certificateUrl": "http://url2"
-                  }
-                ]
-              }
-            ]
+            "secrets": "[variables('linuxProfileSecrets')]"
           },
           "storageProfile": {
             "imageReference": {
@@ -1510,18 +1524,7 @@
               ]
             }
           },
-          "secrets": [
-            {
-              "sourceVault": {
-                "id": "vaultId"
-              },
-              "vaultCertificates": [
-                {
-                  "certificateUrl": "http://url1"
-                }
-              ]
-            }
-          ]
+          "secrets": "[variables('linuxProfileSecrets')]"
         },
         "storageProfile": {
           "imageReference": {

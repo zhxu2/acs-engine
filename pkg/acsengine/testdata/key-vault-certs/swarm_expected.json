@@ -615,6 +615,30 @@
       },
       "type": "string"
     },
+    "linuxKeyVaultID0": {
+      "metadata": {
+        "description": "KeyVaultId0 to install certificates from on linux machines."
+      },
+      "type": "string"
+    },
+    "linuxKeyVaultID0CertificateURL0": {
+      "metadata": {
+        "description": "CertificateURL0 to install from KeyVaultId0 on linux machines."
+      },
+      "type": "string"
+    },
+    "linuxKeyVaultID1": {
+      "metadata": {
+        "description": "KeyVaultId1 to install certificates from on linux machines."
+      },
+      "type": "string"
+    },
+    "linuxKeyVaultID1CertificateURL0": {
+      "metadata": {
+        "description": "CertificateURL0 to install from KeyVaultId1 on linux machines."
+      },
+      "type": "string"
+    },
     "masterEndpointDNSNamePrefix": {
       "metadata": {
         "description": "Sets the Domain name label for the master IP Address.  The concatenation of the domain name label and the regional DNS zone make up the fully qualified domain name associated with the public IP address."
@@ -717,6 +741,36 @@
         "description": "User name for the Windows Swarm Agent Virtual Machines (Password Only Supported)."
       },
       "type": "string"
+    },
+    "windowsKeyVaultID0": {
+      "metadata": {
+        "description": "KeyVaultId0 to install certificates from on windows machines."
+      },
+      "type": "string"
+    },
+    "windowsKeyVaultID0CertificateStore0": {
+      "metadata": {
+        "description": "CertificateStore to install Certificate0 from KeyVaultId0 on windows machines."
+      },
+      "type": "string"
+    },
+    "windowsKeyVaultID0CertificateStore1": {
+      "metadata": {
+        "description": "CertificateStore to install Certificate1 from KeyVaultId0 on windows machines."
+      },
+      "type": "string"
+    },
+    "windowsKeyVaultID0CertificateURL0": {
+      "metadata": {
+        "description": "Url to retrieve Certificate0 from KeyVaultId0 to install on windows machines."
+      },
+      "type": "string"
+    },
+    "windowsKeyVaultID0CertificateURL1": {
+      "metadata": {
+        "description": "Url to retrieve Certificate1 from KeyVaultId0 to install on windows machines."
+      },
+      "type": "string"
     }
   },
   "variables": {
@@ -768,6 +822,28 @@
     "apiVersionStorage": "2015-06-15",
     "clusterInstallParameters": "[concat(variables('masterCount'), ' ',variables('masterVMNamePrefix'), ' ',variables('masterFirstAddrOctet4'), ' ',variables('adminUsername'),' ',variables('postInstallScriptURI'),' ',variables('masterFirstAddrPrefix'))]",
     "dataStorageAccountPrefixSeed": 97,
+    "linuxProfileSecrets": [
+      {
+        "sourceVault": {
+          "id": "[parameters('linuxKeyVaultID0')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateUrl": "[parameters('linuxKeyVaultID0CertificateURL0')]"
+          }
+        ]
+      },
+      {
+        "sourceVault": {
+          "id": "[parameters('linuxKeyVaultID1')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateUrl": "[parameters('linuxKeyVaultID1CertificateURL0')]"
+          }
+        ]
+      }
+    ],
     "masterAvailabilitySet": "[concat(variables('orchestratorName'), '-master-availabilitySet-', variables('nameSuffix'))]",
     "masterCount": 1,
     "masterCustomScript": "[concat('/bin/bash -c \"/bin/bash /opt/azure/containers/configure-swarm-cluster.sh ',variables('clusterInstallParameters'),' >> /var/log/azure/cluster-bootstrap.log 2>&1\"')]",
@@ -1074,7 +1150,31 @@
     "windowsAdminUsername": "[parameters('windowsAdminUsername')]",
     "windowsCustomScript": "[concat('powershell.exe -ExecutionPolicy Unrestricted -command \"', variables('windowsCustomScriptArguments'), variables('windowsCustomScriptSuffix'), '\" > %SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.log 2>&1')]",
     "windowsCustomScriptArguments": "[concat('$arguments = ', variables('singleQuote'),'-SwarmMasterIP ', variables('masterFirstAddrPrefix'), variables('masterFirstAddrOctet4'), variables('singleQuote'), ' ; ')]",
-    "windowsCustomScriptSuffix": " $inputFile = '%SYSTEMDRIVE%\\AzureData\\CustomData.bin' ; $outputFile = '%SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.ps1' ; $inputStream = New-Object System.IO.FileStream $inputFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read) ; $sr = New-Object System.IO.StreamReader(New-Object System.IO.Compression.GZipStream($inputStream, [System.IO.Compression.CompressionMode]::Decompress)) ; $sr.ReadToEnd() | Out-File($outputFile) ; Invoke-Expression('{0} {1}' -f $outputFile, $arguments) ; "
+    "windowsCustomScriptSuffix": " $inputFile = '%SYSTEMDRIVE%\\AzureData\\CustomData.bin' ; $outputFile = '%SYSTEMDRIVE%\\AzureData\\CustomDataSetupScript.ps1' ; $inputStream = New-Object System.IO.FileStream $inputFile, ([IO.FileMode]::Open), ([IO.FileAccess]::Read), ([IO.FileShare]::Read) ; $sr = New-Object System.IO.StreamReader(New-Object System.IO.Compression.GZipStream($inputStream, [System.IO.Compression.CompressionMode]::Decompress)) ; $sr.ReadToEnd() | Out-File($outputFile) ; Invoke-Expression('{0} {1}' -f $outputFile, $arguments) ; ",
+    "windowsProfileSecrets": [
+      {
+        "sourceVault": {
+          "id": "[parameters('windowsKeyVaultID0')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateStore": "[parameters('windowsKeyVaultID0CertificateStore0')]",
+            "certificateUrl": "[parameters('windowsKeyVaultID0CertificateURL0')]"
+          }
+        ]
+      },
+      {
+        "sourceVault": {
+          "id": "[parameters('windowsKeyVaultID1')]"
+        },
+        "vaultCertificates": [
+          {
+            "certificateStore": "[parameters('windowsKeyVaultID1CertificateStore0')]",
+            "certificateUrl": "[parameters('windowsKeyVaultID1CertificateURL0')]"
+          }
+        ]
+      }
+    ]
   },
   "resources": [
     {
@@ -1281,7 +1381,8 @@
                   }
                 ]
               }
-            }
+            },
+            "secrets": "[variables('linuxProfileSecrets')]"
           },
           "storageProfile": {
             "imageReference": {
@@ -1384,18 +1485,7 @@
                 ]
               }
             },
-            "secrets": [
-              {
-                "sourceVault": {
-                  "id": "vaultId"
-                },
-                "vaultCertificates": [
-                  {
-                    "certificateUrl": "http://url2"
-                  }
-                ]
-              }
-            ]
+            "secrets": "[variables('linuxProfileSecrets')]"
           },
           "storageProfile": {
             "imageReference": {
@@ -1504,23 +1594,7 @@
             "adminUsername": "[variables('windowsAdminUsername')]",
             "computerNamePrefix": "[concat(substring(variables('nameSuffix'), 0, 5), 'acs')]",
             "customData": "H4sIAAAJbogA/9RY/3PayBX/XX/Fq8yMobUEzoW7lCmdcwFfaGNgEIl7E2cya+kBe17tKrsrEy7x/97ZXUkIMJde+0uLZzxC+77v5/P2LWf/xcc7gyiWNNNAEpJpTGApReqdwVrrTPXabUk24YrqdX6fK5Sx4Bq5DmORtm9oLIUSS91+R6XOCaO/Ek0FD4YizlPk2n5rp0RplO0N5YnYqEChfEQZGEOEcpSBFoKp9pgrTRgLBuX710Lp59+Gmbr0vL+ceQAA4WS6GEX20XwGIttKulpraMYtqCKEgZCZkDagEOCKMbBSCiTagJLQq2y8VQhiCXpNFSiSZgxBiVzGCLFIEMzb/P4XjDVoAXqNoFGmyqngzmdlj9EYuUIgK4lo6gI5T1DCZk3jNWxFXkokp3yGMF5W5oxCQhPgQgOJY8z0cRBHLi+sGpFo1CpTJNdrIemvxrOAXOHpAK6FPOnmojKYMSQKQSE+Hwbco94gchcNT2o7JOQF0CWQLGM0JvesZrU092Y8GE2iUThfXIOwNiRQhxBIMaEEiiClENrEaCUsvko5h4DK8uL1CKKrm9mbEUTTt/PBCAbT4QjGEczm03fj4WgI/lUE48i/gNvx4jVMpnB7NZ9fTRbjUVRgJox+nkxn0XiHwgK2ygaTSZT4KaeKalSwFBJiiURTvoJbxwmoyKAqE9MMuYLFYAaZkFpB81Xn4uXL7y5efPdD9+JV51WnBZRXBq6pxA1hLKwRgXOMtYKhiB/QVAEIqA2RKThClsEPR9FgPp4txtPJ/2X8s6v51c1oMZpDZFZv7OJ4tstlBldJIlFZ1BbWrCg42cLO6J8WB5VeeHey+UCw5wou//wivPz+Vfii2w27nnf2V+9sbiomUUHwDqWigkM37Hje+0GaMNR/ozyhfNUc4pLkTM+IJClqlBHqCUmx70ea8ITIxG998DKz2rRxvVdaUr764L68I4wmRONE6EnO2FSO0kxvmy233NiPsQ/+5Q8mzLATdn2v5XmNFRP3hPVcSSKUjzRG497Iupd+JfR6Eh1IrLnyPW9JmUYJC5qi0iTN4IvfaP6EOhgSjRBcC5kSDaLVg8ZH/8nzljmPDQXhVlKNwRuxajZSVIqssOV9cYGnagV9KF/D1511u+40p7nOcm2FvZpdL9JE6sCF3yxNVs7At+sGuyfTD8PQd4EoI2ucQx/KnCp82IfNmjKEZmB6cSOxluZIkm3Lrn6phLXcVs+7t+bj4i3cQ2Cre3pnAiQQaZF5ezbqnk3ltMyxvl4JP1VPMdHx+kRIDU1THDGSmROpD7v9bEFQK8qeDl1Cs9Gsa7bChdCE3VCem74RrBC6rT2dfa8H+1QQdUgwFbw676xzUHkco1LLnLEtbKheUw5dSJ2nYvPqn3uJ5GHv7dNBAVFKISMtTbofw9Fnc6qag+LGYdA7EWQFpnL/loQyTHo7gz6c0lUMMTO6pqNedkBhLHiiKvSVnwIgRhoChTFcdg7288kQoM4Akf0mAUSW/XsEKFG72yhr+/eCtUSgi3aHvJ3ZWnjXtoKm3SujWvahKs8qzbeZ6X3Bnts5xuIR5XYmGI23VfaH/FgSpvAbFLf/zmBDqBnXNGX2LFRF6viZKq1+VwswDDEeyur9Rt1GBjxXrk9GlCHXbGsOIcpzbJ0i7TM94BneI1MI/8u8f8vN7Gf2f0l5UhX8dLX+Q/6fcL+s4Gfdn3R7AXv87Zb0/QZ3u0fUrbBWr4GBtjHt9tTcUWzfyyysL0x0yFUuEaguF5WZiG3XKQ8vF6wqgH17M566S8uG8u9efCwL+xVu1ygxKBa/ND6G3IKQpoaopyvgQl8KiSReQ7P0Z6a6yvchB1Qc4mfXJU30pZzzaG5iug+vvn/Z6QCx6Ff9Mr12t9Pp7LrAmZ0vj8ZHmNlZc4KYYLKbNYxsUMpYkV1rcNNpH348HlAPEjSSNjurcphag6NWazMYuQeSPC7LqKoHkiQgc4ZgEu6f2xxMPM7mOSRU9ikvku8TxsQGMim0iAXrm1maiZgwI9u3Gv5zHRQNgwx6bMCGHhCLNDW3LRekX5vzH8UDBqPPmZmPTamCgRPtOdF6xV3DLSfogeBLujJQXJNHhJjlZtAMlBYS+7HgKme9dttkbEfv2IrnEhPLFzd/F0rh4VToXLij/+9K8FojJ5oMqT2mkT/2ZlKsJEmHRBOvaNj2buKui5rIFWpTVIy1KM6yhntbGCnt/QnO7xzZ7lyk557rbs0/NBeodDAjeg3uf81Cq7UDwAQ3wVhjCvb/YpvhzvORZlHXQ+IPkaFGeMAtLCkzTUaAXhPtruW8+PUh5/RTblukvQ8VfH/A7TVl1Xi+83X3gNvwFyW4f+hujql4tKNAs67e8r2yte9y3xOocG8toMu7LlHPr0Gz8gLmWtF4Vnw/yv8qeUSpqUITUaXWMqlWkGo09282rd6rbqdTFGGaaxOC4bNfYMZfC6WV34P3vo6zXrvdCe1fzxDdvwCfZzTDXrvtf3C/OPh7WPZ74H/L94EeKbMwunuJOJ/ek+f/6O0H/BWmuQ7sY4A8FuZ6CFfRYDyGwEAhM3tQ39TEsqPYV8vPn1DDxEBkPHv3srzz7qi1V/mKURJ1LrmbTCaoKwH4ChtzLtgDYfc2eEMfEM4vO+EfzyGwLeVjWCxek5SyLQT4Cc5NCOdPrfedDztlE6WZKI8m0pkUj9R0n29Npa6Zud4xnh3ccP0jNEWHA2RtMj4SNr3YnuZlr7Zd3ukdnx9H6vZxvzfm7ufGOusOG9uRmf0eu3/uO0PfHnufHSnsJHJQjN1FuWiecsfmmRQZSl12Lv/1P97c9O6in6PF6OZukEuJXJuRVAoWob4rHu9uKaecah/gNZKEmV23luv3nnWuE7Hh0JbQXkJbw/cFe8+eWzreVdR5BgORZqZXGuy7G0UdVnaAhsZHezH6VwAAAP//EUwQ4h4XAAA=",
-            "secrets": [
-              {
-                "sourceVault": {
-                  "id": "vaultId"
-                },
-                "vaultCertificates": [
-                  {
-                    "certificateStore": "store",
-                    "certificateUrl": "http://url3"
-                  },
-                  {
-                    "certificateStore": "store",
-                    "certificateUrl": "http://url4"
-                  }
-                ]
-              }
-            ]
+            "secrets": "[variables('windowsProfileSecrets')]"
           },
           "storageProfile": {
             "imageReference": {
@@ -1756,18 +1830,7 @@
               ]
             }
           },
-          "secrets": [
-            {
-              "sourceVault": {
-                "id": "vaultId"
-              },
-              "vaultCertificates": [
-                {
-                  "certificateUrl": "http://url1"
-                }
-              ]
-            }
-          ]
+          "secrets": "[variables('linuxProfileSecrets')]"
         },
         "storageProfile": {
           "imageReference": {

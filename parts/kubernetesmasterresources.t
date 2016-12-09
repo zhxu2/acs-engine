@@ -282,26 +282,9 @@
               ]
             }
           }
-          {{if .MasterProfile.HasSecrets}}
+          {{if .LinuxProfile.HasSecrets}}
           ,
-          "secrets": [
-          {{range  $vIndex, $vault := .MasterProfile.Secrets}}
-            {{if $vIndex}} , {{end}}
-            {
-              "sourceVault": {
-                "id": "{{.SourceVault.ID}}"
-              },
-              "vaultCertificates": [
-              {{range $cIndex, $cert := $vault.VaultCertificates}}
-                {{if $cIndex}} , {{end}}
-                {
-                  "certificateUrl": "{{$cert.CertificateURL}}"
-                }
-              {{end}}
-              ]
-            }
-          {{end}}
-          ]
+          "secrets": "[variables('linuxProfileSecrets')]"
           {{end}}
         },
         "storageProfile": {

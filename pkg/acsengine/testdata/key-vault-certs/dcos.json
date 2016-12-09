@@ -7,19 +7,7 @@
     "masterProfile": {
       "count": 3,
       "dnsPrefix": "masterdns1",
-      "vmSize": "Standard_D2_v2",
-      "secrets":[
-        {
-          "sourceVault":{
-            "id":"vaultId"
-          },
-          "vaultCertificates":[
-            {
-              "certificateUrl" :"http://url1"
-            }
-          ]
-        }
-      ]
+      "vmSize": "Standard_D2_v2"
     },
     "agentPoolProfiles": [
       {
@@ -36,18 +24,6 @@
           80,
           443,
           8080
-        ],
-        "secrets":[
-          {
-            "sourceVault":{
-              "id":"vaultId"
-            },
-            "vaultCertificates":[
-              {
-                "certificateUrl" :"http://url2"
-              }
-            ]
-          }
         ]
       }
     ],
@@ -59,7 +35,19 @@
             "keyData": "ssh-rsa PUBLICKEY azureuser@linuxvm"
           }
         ]
-      }
+      },
+      "secrets":[
+        {
+          "sourceVault":{
+            "id":"vaultId"
+          },
+          "vaultCertificates":[
+            {
+              "certificateUrl" :"http://url1"
+            }
+          ]
+        }
+      ]
     }
   }
 }

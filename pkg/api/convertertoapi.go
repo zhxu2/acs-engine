@@ -129,6 +129,12 @@ func convertVLabsLinuxProfile(vlabs *vlabs.LinuxProfile, api *LinuxProfile) {
 	for _, d := range vlabs.SSH.PublicKeys {
 		api.SSH.PublicKeys = append(api.SSH.PublicKeys, d)
 	}
+	api.Secrets = []KeyVaultSecrets{}
+	for _, s := range vlabs.Secrets {
+		secret := &KeyVaultSecrets{}
+		convertVLabsKeyVaultSecrets(&s, secret)
+		api.Secrets = append(api.Secrets, *secret)
+	}
 }
 
 func convertV20160330WindowsProfile(v20160330 *v20160330.WindowsProfile, api *WindowsProfile) {
@@ -139,6 +145,12 @@ func convertV20160330WindowsProfile(v20160330 *v20160330.WindowsProfile, api *Wi
 func convertVLabsWindowsProfile(vlabs *vlabs.WindowsProfile, api *WindowsProfile) {
 	api.AdminUsername = vlabs.AdminUsername
 	api.AdminPassword = vlabs.AdminPassword
+	api.Secrets = []KeyVaultSecrets{}
+	for _, s := range vlabs.Secrets {
+		secret := &KeyVaultSecrets{}
+		convertVLabsKeyVaultSecrets(&s, secret)
+		api.Secrets = append(api.Secrets, *secret)
+	}
 }
 
 func convertV20160330OrchestratorProfile(v20160330 *v20160330.OrchestratorProfile, api *OrchestratorProfile) {
@@ -164,12 +176,6 @@ func convertVLabsMasterProfile(vlabs *vlabs.MasterProfile, api *MasterProfile) {
 	api.FirstConsecutiveStaticIP = vlabs.FirstConsecutiveStaticIP
 	api.Subnet = vlabs.GetSubnet()
 	api.FQDN = vlabs.FQDN
-	api.Secrets = []KeyVaultSecrets{}
-	for _, s := range vlabs.Secrets {
-		secret := &KeyVaultSecrets{}
-		convertVLabsKeyVaultSecrets(&s, secret)
-		api.Secrets = append(api.Secrets, *secret)
-	}
 }
 
 func convertV20160330AgentPoolProfile(v20160330 *v20160330.AgentPoolProfile, api *AgentPoolProfile) {
@@ -197,12 +203,6 @@ func convertVLabsAgentPoolProfile(vlabs *vlabs.AgentPoolProfile, api *AgentPoolP
 	api.VnetSubnetID = vlabs.VnetSubnetID
 	api.Subnet = vlabs.GetSubnet()
 	api.FQDN = vlabs.FQDN
-	api.Secrets = []KeyVaultSecrets{}
-	for _, s := range vlabs.Secrets {
-		secret := &KeyVaultSecrets{}
-		convertVLabsKeyVaultSecrets(&s, secret)
-		api.Secrets = append(api.Secrets, *secret)
-	}
 }
 
 func convertVLabsKeyVaultSecrets(vlabs *vlabs.KeyVaultSecrets, api *KeyVaultSecrets) {
