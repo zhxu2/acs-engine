@@ -77,12 +77,14 @@ type LinuxProfile struct {
 			KeyData string `json:"keyData"`
 		} `json:"publicKeys"`
 	} `json:"ssh"`
+	Secrets []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
-	AdminUsername string `json:"adminUsername,omitempty"`
-	AdminPassword string `json:"adminPassword,omitempty"`
+	AdminUsername string            `json:"adminUsername,omitempty"`
+	AdminPassword string            `json:"adminPassword,omitempty"`
+	Secrets       []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // ProvisioningState represents the current state of container service resource.
@@ -111,11 +113,13 @@ type OrchestratorProfile struct {
 
 // MasterProfile represents the definition of the master cluster
 type MasterProfile struct {
-	Count                    int    `json:"count"`
-	DNSPrefix                string `json:"dnsPrefix"`
-	VMSize                   string `json:"vmSize"`
-	VnetSubnetID             string `json:"vnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP string `json:"firstConsecutiveStaticIP,omitempty"`
+	Count                    int                         `json:"count"`
+	DNSPrefix                string                      `json:"dnsPrefix"`
+	VMSize                   string                      `json:"vmSize"`
+	VnetSubnetID             string                      `json:"vnetSubnetID,omitempty"`
+	FirstConsecutiveStaticIP string                      `json:"firstConsecutiveStaticIP,omitempty"`
+	ClassicProfile           ClassicAgentPoolProfileType `json:"classicProfile,omitempty"`
+
 	// subnet is internal
 	subnet string
 
@@ -125,22 +129,50 @@ type MasterProfile struct {
 	FQDN string `json:"fqdn,omitempty"`
 }
 
+// ClassicAgentPoolProfileType represents types of classic profiles
+type ClassicAgentPoolProfileType string
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                string `json:"name"`
-	Count               int    `json:"count"`
-	VMSize              string `json:"vmSize"`
-	DNSPrefix           string `json:"dnsPrefix,omitempty"`
-	OSType              OSType `json:"osType,omitempty"`
-	Ports               []int  `json:"ports,omitempty"`
-	AvailabilityProfile string `json:"availabilityProfile"`
-	StorageProfile      string `json:"storageProfile"`
-	DiskSizesGB         []int  `json:"diskSizesGB,omitempty"`
-	VnetSubnetID        string `json:"vnetSubnetID,omitempty"`
+	Name                string                      `json:"name"`
+	Count               int                         `json:"count"`
+	VMSize              string                      `json:"vmSize"`
+	DNSPrefix           string                      `json:"dnsPrefix,omitempty"`
+	OSType              OSType                      `json:"osType,omitempty"`
+	Ports               []int                       `json:"ports,omitempty"`
+	AvailabilityProfile string                      `json:"availabilityProfile"`
+	StorageProfile      string                      `json:"storageProfile"`
+	DiskSizesGB         []int                       `json:"diskSizesGB,omitempty"`
+	VnetSubnetID        string                      `json:"vnetSubnetID,omitempty"`
+	ClassicProfile      ClassicAgentPoolProfileType `json:"classicProfile,omitempty"`
+
 	// subnet is internal
 	subnet string
 
 	FQDN string `json:"fqdn,omitempty"`
+}
+
+// KeyVaultSecrets specifies certificates to install on the pool
+// of machines from a given key vault
+// the key vault specified must have been granted read permissions to CRP
+type KeyVaultSecrets struct {
+	SourceVault       KeyVaultID            `json:"sourceVault,omitempty"`
+	VaultCertificates []KeyVaultCertificate `json:"vaultCertificates,omitempty"`
+}
+
+// KeyVaultID specifies a key vault
+type KeyVaultID struct {
+	ID string `json:"id,omitempty"`
+}
+
+// KeyVaultCertificate specifies a certificate to install
+// On Linux, the certificate file is placed under the /var/lib/waagent directory
+// with the file name <UppercaseThumbprint>.crt for the X509 certificate file
+// and <UppercaseThumbprint>.prv for the private key. Both of these files are .pem formatted.
+// On windows the certificate will be saved in the specified store.
+type KeyVaultCertificate struct {
+	CertificateURL   string `json:"certificateUrl,omitempty"`
+	CertificateStore string `json:"certificateStore,omitempty"`
 }
 
 // OrchestratorType defines orchestrators supported by ACS
@@ -150,8 +182,8 @@ type OrchestratorType string
 type OSType string
 
 // HasWindows returns true if the cluster contains windows
-func (a *Properties) HasWindows() bool {
-	for _, agentPoolProfile := range a.AgentPoolProfiles {
+func (p *Properties) HasWindows() bool {
+	for _, agentPoolProfile := range p.AgentPoolProfiles {
 		if agentPoolProfile.OSType == Windows {
 			return true
 		}

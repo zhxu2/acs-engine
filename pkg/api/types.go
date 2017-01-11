@@ -92,12 +92,14 @@ type LinuxProfile struct {
 			KeyData string `json:"keyData"`
 		} `json:"publicKeys"`
 	} `json:"ssh"`
+	Secrets []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // WindowsProfile represents the windows parameters passed to the cluster
 type WindowsProfile struct {
-	AdminUsername string `json:"adminUsername"`
-	AdminPassword string `json:"adminPassword"`
+	AdminUsername string            `json:"adminUsername"`
+	AdminPassword string            `json:"adminPassword"`
+	Secrets       []KeyVaultSecrets `json:"secrets,omitempty"`
 }
 
 // ProvisioningState represents the current state of container service resource.
@@ -134,12 +136,13 @@ type KubernetesConfig struct {
 
 // MasterProfile represents the definition of the master cluster
 type MasterProfile struct {
-	Count                    int    `json:"count"`
-	DNSPrefix                string `json:"dnsPrefix"`
-	VMSize                   string `json:"vmSize"`
-	VnetSubnetID             string `json:"vnetSubnetID,omitempty"`
-	FirstConsecutiveStaticIP string `json:"firstConsecutiveStaticIP,omitempty"`
-	Subnet                   string `json:"subnet"`
+	Count                    int                         `json:"count"`
+	DNSPrefix                string                      `json:"dnsPrefix"`
+	VMSize                   string                      `json:"vmSize"`
+	VnetSubnetID             string                      `json:"vnetSubnetID,omitempty"`
+	FirstConsecutiveStaticIP string                      `json:"firstConsecutiveStaticIP,omitempty"`
+	Subnet                   string                      `json:"subnet"`
+	ClassicProfile           ClassicAgentPoolProfileType `json:"classicProfile,omitempty"`
 
 	// Master LB public endpoint/FQDN with port
 	// The format will be FQDN:2376
@@ -147,19 +150,23 @@ type MasterProfile struct {
 	FQDN string `json:"fqdn,omitempty"`
 }
 
+// ClassicAgentPoolProfileType represents types of classic profiles
+type ClassicAgentPoolProfileType string
+
 // AgentPoolProfile represents an agent pool definition
 type AgentPoolProfile struct {
-	Name                string `json:"name"`
-	Count               int    `json:"count"`
-	VMSize              string `json:"vmSize"`
-	DNSPrefix           string `json:"dnsPrefix,omitempty"`
-	OSType              OSType `json:"osType,omitempty"`
-	Ports               []int  `json:"ports,omitempty"`
-	AvailabilityProfile string `json:"availabilityProfile"`
-	StorageProfile      string `json:"storageProfile,omitempty"`
-	DiskSizesGB         []int  `json:"diskSizesGB,omitempty"`
-	VnetSubnetID        string `json:"vnetSubnetID,omitempty"`
-	Subnet              string `json:"subnet"`
+	Name                string                      `json:"name"`
+	Count               int                         `json:"count"`
+	VMSize              string                      `json:"vmSize"`
+	DNSPrefix           string                      `json:"dnsPrefix,omitempty"`
+	OSType              OSType                      `json:"osType,omitempty"`
+	Ports               []int                       `json:"ports,omitempty"`
+	AvailabilityProfile string                      `json:"availabilityProfile"`
+	StorageProfile      string                      `json:"storageProfile,omitempty"`
+	DiskSizesGB         []int                       `json:"diskSizesGB,omitempty"`
+	VnetSubnetID        string                      `json:"vnetSubnetID,omitempty"`
+	Subnet              string                      `json:"subnet"`
+	ClassicProfile      ClassicAgentPoolProfileType `json:"classicProfile,omitempty"`
 
 	FQDN string `json:"fqdn,omitempty"`
 }
@@ -199,6 +206,29 @@ type JumpboxProfile struct {
 	FQDN string `json:"fqdn,omitempty"`
 }
 
+// KeyVaultSecrets specifies certificates to install on the pool
+// of machines from a given key vault
+// the key vault specified must have been granted read permissions to CRP
+type KeyVaultSecrets struct {
+	SourceVault       KeyVaultID            `json:"sourceVault,omitempty"`
+	VaultCertificates []KeyVaultCertificate `json:"vaultCertificates,omitempty"`
+}
+
+// KeyVaultID specifies a key vault
+type KeyVaultID struct {
+	ID string `json:"id,omitempty"`
+}
+
+// KeyVaultCertificate specifies a certificate to install
+// On Linux, the certificate file is placed under the /var/lib/waagent directory
+// with the file name <UppercaseThumbprint>.crt for the X509 certificate file
+// and <UppercaseThumbprint>.prv for the private key. Both of these files are .pem formatted.
+// On windows the certificate will be saved in the specified store.
+type KeyVaultCertificate struct {
+	CertificateURL   string `json:"certificateUrl,omitempty"`
+	CertificateStore string `json:"certificateStore,omitempty"`
+}
+
 // OSType represents OS types of agents
 type OSType string
 
@@ -219,8 +249,8 @@ type V20160330ARMContainerService struct {
 }
 
 // HasWindows returns true if the cluster contains windows
-func (a *Properties) HasWindows() bool {
-	for _, agentPoolProfile := range a.AgentPoolProfiles {
+func (p *Properties) HasWindows() bool {
+	for _, agentPoolProfile := range p.AgentPoolProfiles {
 		if agentPoolProfile.OSType == Windows {
 			return true
 		}
@@ -229,8 +259,8 @@ func (a *Properties) HasWindows() bool {
 }
 
 // HasManagedDisks returns true if the cluster contains Managed Disks
-func (a *Properties) HasManagedDisks() bool {
-	for _, agentPoolProfile := range a.AgentPoolProfiles {
+func (p *Properties) HasManagedDisks() bool {
+	for _, agentPoolProfile := range p.AgentPoolProfiles {
 		if agentPoolProfile.StorageProfile == ManagedDisks {
 			return true
 		}
@@ -253,6 +283,11 @@ func (m *MasterProfile) IsCustomVNET() bool {
 	return len(m.VnetSubnetID) > 0
 }
 
+// IsClassicProfile returns true if this is a classic profile
+func (m *MasterProfile) IsClassicProfile() bool {
+	return m.ClassicProfile != NotClassic
+}
+
 // IsCustomVNET returns true if the customer brought their own VNET
 func (a *AgentPoolProfile) IsCustomVNET() bool {
 	return len(a.VnetSubnetID) > 0
@@ -273,6 +308,11 @@ func (a *AgentPoolProfile) IsManagedDisks() bool {
 	return a.StorageProfile == ManagedDisks
 }
 
+// IsClassicProfile returns true if this is a classic profile
+func (a *AgentPoolProfile) IsClassicProfile() bool {
+	return a.ClassicProfile != NotClassic
+}
+
 // IsStorageAccount returns true if the customer specified storage account
 func (a *AgentPoolProfile) IsStorageAccount() bool {
 	return a.StorageProfile == StorageAccount
@@ -281,4 +321,14 @@ func (a *AgentPoolProfile) IsStorageAccount() bool {
 // HasDisks returns true if the customer specified disks
 func (a *AgentPoolProfile) HasDisks() bool {
 	return len(a.DiskSizesGB) > 0
+}
+
+// HasSecrets returns true if the customer specified secrets to install
+func (w *WindowsProfile) HasSecrets() bool {
+	return len(w.Secrets) > 0
+}
+
+// HasSecrets returns true if the customer specified secrets to install
+func (l *LinuxProfile) HasSecrets() bool {
+	return len(l.Secrets) > 0
 }

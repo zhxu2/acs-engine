@@ -58,6 +58,7 @@ const (
 	swarmBaseFile                = "swarmbase.t"
 	swarmAgentResourcesVMAS      = "swarmagentresourcesvmas.t"
 	swarmAgentResourcesVMSS      = "swarmagentresourcesvmss.t"
+	swarmAgentResourcesClassic   = "swarmagentresourcesclassic.t"
 	swarmAgentVars               = "swarmagentvars.t"
 	swarmMasterResources         = "swarmmasterresources.t"
 	swarmMasterVars              = "swarmmastervars.t"
@@ -79,7 +80,7 @@ var kubernetesAddonYamls = map[string]string{
 var commonTemplateFiles = []string{agentOutputs, agentParams, classicParams, masterOutputs, masterParams}
 var dcosTemplateFiles = []string{dcosAgentResourcesVMAS, dcosAgentResourcesVMSS, dcosAgentVars, dcosBaseFile, dcosMasterResources, dcosMasterVars}
 var kubernetesTemplateFiles = []string{kubernetesBaseFile, kubernetesAgentResourcesVMAS, kubernetesAgentVars, kubernetesMasterResources, kubernetesMasterVars, kubernetesParams}
-var swarmTemplateFiles = []string{swarmBaseFile, swarmAgentResourcesVMAS, swarmAgentVars, swarmAgentResourcesVMSS, swarmBaseFile, swarmMasterResources, swarmMasterVars, swarmWinAgentResourcesVMAS, swarmWinAgentResourcesVMSS, windowsParams}
+var swarmTemplateFiles = []string{swarmBaseFile, swarmAgentResourcesVMAS, swarmAgentVars, swarmAgentResourcesVMSS, swarmAgentResourcesClassic, swarmBaseFile, swarmMasterResources, swarmMasterVars, swarmWinAgentResourcesVMAS, swarmWinAgentResourcesVMSS, windowsParams}
 
 func (t *TemplateGenerator) verifyFiles() error {
 	allFiles := append(commonTemplateFiles, dcosTemplateFiles...)
@@ -218,6 +219,12 @@ func getParameters(properties *api.Properties) (map[string]interface{}, error) {
 	addValue(parametersMap, "firstConsecutiveStaticIP", properties.MasterProfile.FirstConsecutiveStaticIP)
 	addValue(parametersMap, "masterVMSize", properties.MasterProfile.VMSize)
 	addValue(parametersMap, "sshRSAPublicKey", properties.LinuxProfile.SSH.PublicKeys[0].KeyData)
+	for i, s := range properties.LinuxProfile.Secrets {
+		addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%d", i), s.SourceVault.ID)
+		for j, c := range s.VaultCertificates {
+			addValue(parametersMap, fmt.Sprintf("linuxKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
+		}
+	}
 
 	// Kubernetes Parameters
 	if properties.OrchestratorProfile.OrchestratorType == api.Kubernetes {
@@ -252,6 +259,13 @@ func getParameters(properties *api.Properties) (map[string]interface{}, error) {
 	if properties.HasWindows() {
 		addValue(parametersMap, "windowsAdminUsername", properties.WindowsProfile.AdminUsername)
 		addValue(parametersMap, "windowsAdminPassword", properties.WindowsProfile.AdminPassword)
+		for i, s := range properties.WindowsProfile.Secrets {
+			addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%d", i), s.SourceVault.ID)
+			for j, c := range s.VaultCertificates {
+				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateURL%d", i, j), c.CertificateURL)
+				addValue(parametersMap, fmt.Sprintf("windowsKeyVaultID%dCertificateStore%d", i, j), c.CertificateStore)
+			}
+		}
 	}
 
 	return parametersMap, nil
@@ -402,6 +416,12 @@ func (t *TemplateGenerator) getTemplateFuncMap(properties *api.Properties) map[s
 				}
 			}
 			return false
+		},
+		"HasLinuxSecrets": func() bool {
+			return properties.LinuxProfile.HasSecrets()
+		},
+		"HasWindowsSecrets": func() bool {
+			return properties.WindowsProfile.HasSecrets()
 		},
 		// inspired by http://stackoverflow.com/questions/18276173/calling-a-template-with-several-pipeline-parameters/18276968#18276968
 		"dict": func(values ...interface{}) (map[string]interface{}, error) {
