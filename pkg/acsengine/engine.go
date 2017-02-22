@@ -21,6 +21,7 @@ const (
 	kubernetesMasterCustomDataYaml      = "kubernetesmastercustomdata.yml"
 	kubernetesMasterCustomScript        = "kubernetesmastercustomscript.sh"
 	kubernetesAgentCustomDataYaml       = "kubernetesagentcustomdata.yml"
+	kubernetesAgentCustomScript         = "kubernetesagentcustomscript.sh"
 	kubeConfigJSON                      = "kubeconfig.json"
 	kubernetesWindowsAgentCustomDataPS1 = "kuberneteswindowssetup.ps1"
 )
@@ -578,6 +579,9 @@ func (t *TemplateGenerator) getTemplateFuncMap(properties *api.Properties) map[s
 				return ""
 			}
 			return fmt.Sprintf("\"customData\": \"[base64(concat('%s'))]\",", str)
+		},
+		"GetKubernetesAgentB64Provision": func() string {
+			return getBase64CustomScript(kubernetesAgentCustomScript)
 		},
 		"GetKubernetesB64Provision": func() string {
 			return getBase64CustomScript(kubernetesMasterCustomScript)

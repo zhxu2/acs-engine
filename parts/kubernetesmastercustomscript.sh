@@ -27,24 +27,11 @@ KUBECONFIG_CERTIFICATE="${17}"
 KUBECONFIG_KEY="${18}"
 ADMINUSER="${19}"
 
-# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
-if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
-    echo "APISERVER_PRIVATE_KEY is non-empty, assuming master node"
-
-    APISERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/apiserver.key"
-    touch "${APISERVER_PRIVATE_KEY_PATH}"
-    chmod 0644 "${APISERVER_PRIVATE_KEY_PATH}"
-    chown root:root "${APISERVER_PRIVATE_KEY_PATH}"
-    echo "${APISERVER_PRIVATE_KEY}" | base64 --decode > "${APISERVER_PRIVATE_KEY_PATH}"
-else
-    echo "APISERVER_PRIVATE_KEY is empty, assuming worker node"
-fi
-
-KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
-touch "${KUBELET_PRIVATE_KEY_PATH}"
-chmod 0644 "${KUBELET_PRIVATE_KEY_PATH}"
-chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
-echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
+APISERVER_PRIVATE_KEY_PATH="/etc/kubernetes/certs/apiserver.key"
+touch "${APISERVER_PRIVATE_KEY_PATH}"
+chmod 0644 "${APISERVER_PRIVATE_KEY_PATH}"
+chown root:root "${APISERVER_PRIVATE_KEY_PATH}"
+echo "${APISERVER_PRIVATE_KEY}" | base64 --decode > "${APISERVER_PRIVATE_KEY_PATH}"
 
 AZURE_JSON_PATH="/etc/kubernetes/azure.json"
 touch "${AZURE_JSON_PATH}"
@@ -66,6 +53,12 @@ cat << EOF > "${AZURE_JSON_PATH}"
     "primaryAvailabilitySetName": "${PRIMARY_AVAILABILITY_SET}"
 }
 EOF
+
+KUBELET_PRIVATE_KEY_PATH="/etc/kubernetes/certs/client.key"
+touch "${KUBELET_PRIVATE_KEY_PATH}"
+chmod 0644 "${KUBELET_PRIVATE_KEY_PATH}"
+chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
+echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
 
 ###########################################################
 # END OF SECRET DATA
@@ -217,6 +210,5 @@ if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     ensureApiserver
 fi
 
-# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 echo "Install complete successfully"
 
