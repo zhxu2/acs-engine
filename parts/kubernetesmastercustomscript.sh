@@ -320,6 +320,5 @@ if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     ensureApiserver
 fi
 
-# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 echo "Install complete successfully"
 

@@ -21,6 +21,7 @@ const (
 	kubernetesMasterCustomDataYaml      = "kubernetesmastercustomdata.yml"
 	kubernetesMasterCustomScript        = "kubernetesmastercustomscript.sh"
 	kubernetesAgentCustomDataYaml       = "kubernetesagentcustomdata.yml"
+	kubernetesAgentCustomScript         = "kubernetesagentcustomscript.sh"
 	kubeConfigJSON                      = "kubeconfig.json"
 	kubernetesWindowsAgentCustomDataPS1 = "kuberneteswindowssetup.ps1"
 )
@@ -61,6 +62,7 @@ const (
 	kubernetesParams             = "kubernetesparams.t"
 	kubernetesWinAgentVars       = "kuberneteswinagentresourcesvmas.t"
 	kubernetesKubeletService     = "kuberneteskubelet.service"
+	kubernetesAgentKubeletSvc    = "kubernetesagentkubelet.service"
 	masterOutputs                = "masteroutputs.t"
 	masterParams                 = "masterparams.t"
 	swarmBaseFile                = "swarmbase.t"
@@ -92,16 +94,13 @@ var kubernetesManifestYamls = map[string]string{
 var kubernetesAritfacts = map[string]string{
 	"MASTER_PROVISION_B64_GZIP_STR": kubernetesMasterCustomScript,
 	"KUBELET_SERVICE_B64_GZIP_STR":  kubernetesKubeletService,
+	"KUBELET_SERVICE_AGENT_B64_GZIP_STR":  kubernetesAgentKubeletSvc,
 }
 
 var kubernetesAddonYamls = map[string]string{
-	"MASTER_ADDON_HEAPSTER_DEPLOYMENT_B64_GZIP_STR":             "kubernetesmasteraddons-heapster-deployment.yaml",
-	"MASTER_ADDON_HEAPSTER_SERVICE_B64_GZIP_STR":                "kubernetesmasteraddons-heapster-service.yaml",
 	"MASTER_ADDON_KUBE_DNS_DEPLOYMENT_B64_GZIP_STR":             "kubernetesmasteraddons-kube-dns-deployment.yaml",
 	"MASTER_ADDON_KUBE_DNS_SERVICE_B64_GZIP_STR":                "kubernetesmasteraddons-kube-dns-service.yaml",
 	"MASTER_ADDON_KUBE_PROXY_DAEMONSET_B64_GZIP_STR":            "kubernetesmasteraddons-kube-proxy-daemonset.yaml",
-	"MASTER_ADDON_KUBERNETES_DASHBOARD_DEPLOYMENT_B64_GZIP_STR": "kubernetesmasteraddons-kubernetes-dashboard-deployment.yaml",
-	"MASTER_ADDON_KUBERNETES_DASHBOARD_SERVICE_B64_GZIP_STR":    "kubernetesmasteraddons-kubernetes-dashboard-service.yaml",
 	"MASTER_ADDON_DEFAULT_STORAGE_CLASS_B64_GZIP_STR":           "kubernetesmasteraddons-default-storage-class.yaml",
 }
 
@@ -633,6 +632,9 @@ func (t *TemplateGenerator) getTemplateFuncMap(cs *api.ContainerService) map[str
 			}
 
 			return fmt.Sprintf("\"customData\": \"[base64(concat('%s'))]\",", str)
+		},
+		"GetKubernetesAgentB64Provision": func() string {
+			return getBase64CustomScript(kubernetesAgentCustomScript)
 		},
 		"GetKubernetesB64Provision": func() string {
 			return getBase64CustomScript(kubernetesMasterCustomScript)

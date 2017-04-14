@@ -27,7 +27,15 @@
               {{if eq $seq 1}}
               "primary": true,
               {{end}}
+              {{if eq $.Name "system"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(50, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else if eq $.Name "agentpool1"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(100, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else}}
               "privateIPAllocationMethod": "Dynamic",
+              {{end}}
               "subnet": {
                 "id": "[variables('{{$.Name}}VnetSubnetID')]"
               }
@@ -207,7 +215,7 @@
         "autoUpgradeMinorVersion": true,
         "settings": {},
         "protectedSettings": {
-          "commandToExecute": "[concat('/usr/bin/nohup /bin/bash -c \"/bin/bash /opt/azure/containers/provision.sh ',variables('tenantID'),' ',variables('subscriptionId'),' ',variables('resourceGroup'),' ',variables('location'),' ',variables('subnetName'),' ',variables('nsgName'),' ',variables('virtualNetworkName'),' ',variables('routeTableName'),' ',variables('primaryAvailablitySetName'),' ',variables('servicePrincipalClientId'),' ',variables('servicePrincipalClientSecret'),' ',variables('clientPrivateKey'),' ',variables('targetEnvironment'),' ',variables('networkPolicy'),' >> /var/log/azure/cluster-provision.log 2>&1 &\" &')]"
+          "commandToExecute": "[concat('/usr/bin/nohup /bin/bash -c \"/bin/bash /opt/azure/containers/provision.sh ',variables('clientPrivateKey'),' ',variables('networkPolicy'),'>> /var/log/azure/agent-provision.log 2>&1 &\" &')]"
         }
       }
     }
