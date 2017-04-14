@@ -135,6 +135,8 @@ func GetMasterAgentAllowedSizes() string {
         "Basic_A2",
         "Basic_A3",
         "Basic_A4",
+        "Standard_A1", 
+        "Standard_A1_v2", 
         "Standard_A10",
         "Standard_A11",
         "Standard_A2",
@@ -151,6 +153,8 @@ func GetMasterAgentAllowedSizes() string {
         "Standard_A8_v2",
         "Standard_A8m_v2",
         "Standard_A9",
+        "Standard_D1", 
+        "Standard_D1_v2", 
         "Standard_D11",
         "Standard_D11_v2",
         "Standard_D12",
@@ -167,6 +171,8 @@ func GetMasterAgentAllowedSizes() string {
         "Standard_D4",
         "Standard_D4_v2",
         "Standard_D5_v2",
+        "Standard_DS1", 
+        "Standard_DS1_v2", 
         "Standard_DS11",
         "Standard_DS11_v2",
         "Standard_DS12",
@@ -183,6 +189,8 @@ func GetMasterAgentAllowedSizes() string {
         "Standard_DS4",
         "Standard_DS4_v2",
         "Standard_DS5_v2",
+        "Standard_F1", 
+        "Standard_F1s", 
         "Standard_F16",
         "Standard_F16s",
         "Standard_F2",
@@ -228,6 +236,12 @@ func GetSizeMap() string {
         "storageAccountType": "Standard_LRS"
       },
       "Basic_A4": {
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A1": {
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_A1_v2": {
         "storageAccountType": "Standard_LRS"
       },
       "Standard_A10": {
@@ -278,6 +292,12 @@ func GetSizeMap() string {
       "Standard_A9": {
         "storageAccountType": "Standard_LRS"
       },
+      "Standard_D1": {
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_D1_v2": {
+        "storageAccountType": "Standard_LRS"
+      },
       "Standard_D11": {
         "storageAccountType": "Standard_LRS"
       },
@@ -326,6 +346,12 @@ func GetSizeMap() string {
       "Standard_D5_v2": {
         "storageAccountType": "Standard_LRS"
       },
+      "Standard_DS1": {
+        "storageAccountType": "Premium_LRS"
+      },
+      "Standard_DS1_v2": {
+        "storageAccountType": "Premium_LRS"
+      },
       "Standard_DS11": {
         "storageAccountType": "Premium_LRS"
       },
@@ -372,6 +398,12 @@ func GetSizeMap() string {
         "storageAccountType": "Premium_LRS"
       },
       "Standard_DS5_v2": {
+        "storageAccountType": "Premium_LRS"
+      },
+      "Standard_F1": {
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_F1s": {
         "storageAccountType": "Premium_LRS"
       },
       "Standard_F16": {
