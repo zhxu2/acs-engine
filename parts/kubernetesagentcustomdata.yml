@@ -123,7 +123,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    KUBELET_SERVICE_B64_GZIP_STR
+    KUBELET_SERVICE_AGENT_B64_GZIP_STR
 
 - path: "/opt/azure/containers/kubelet.sh"
   permissions: "0755"
@@ -137,7 +137,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    {{{provisionScript}}}
+    {{{agentProvisionScript}}}
 
 runcmd:
 - apt-get update
@@ -151,4 +151,3 @@ runcmd:
 - systemctl restart docker
 - mkdir -p /etc/kubernetes/manifests
 - usermod -aG docker {{{username}}}
-
