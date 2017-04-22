@@ -101,3 +101,4 @@ spec:
       dnsPolicy: Default
       nodeSelector:
         beta.kubernetes.io/os: linux
+        agentpool: system

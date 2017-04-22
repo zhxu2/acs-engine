@@ -42,6 +42,11 @@ function ensureDocker() {
     fi
 }
 
+function setAgentPool() {
+    AGENTPOOL=`hostname | cut -d- -f2`
+    sed -i "s/^KUBELET_NODE_LABELS=.*/KUBELET_NODE_LABELS=role=agent,agentpool=${AGENTPOOL}/" /etc/default/kubelet
+}
+
 function ensureKubelet() {
     systemctl enable kubelet
     systemctl restart kubelet
@@ -86,6 +91,7 @@ function configNetworkPolicy() {
  
 ensureDocker
 configNetworkPolicy
+setAgentPool
 ensureKubelet
 
 echo "Install complete successfully"
