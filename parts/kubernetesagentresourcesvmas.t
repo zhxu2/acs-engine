@@ -27,7 +27,15 @@
               {{if eq $seq 1}}
               "primary": true,
               {{end}}
+              {{if eq $.Name "system"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(50, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else if eq $.Name "agentpool1"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(100, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else}}
               "privateIPAllocationMethod": "Dynamic",
+              {{end}}
               "subnet": {
                 "id": "[variables('{{$.Name}}VnetSubnetID')]"
               }
