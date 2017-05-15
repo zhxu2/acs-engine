@@ -557,6 +557,12 @@ func GetSizeMap() string {
       "Standard_DS5_v2_Promo": {
         "storageAccountType": "Premium_LRS"
       },
+      "Standard_F1": {
+        "storageAccountType": "Standard_LRS"
+      },
+      "Standard_F1s": {
+        "storageAccountType": "Premium_LRS"
+      },
       "Standard_F16": {
         "storageAccountType": "Standard_LRS"
       },
