@@ -30,6 +30,8 @@ spec:
         - "--client-ca-file=/etc/kubernetes/certs/ca.crt"
         - "--service-account-key-file=/etc/kubernetes/certs/apiserver.key"
         - "--storage-backend=etcd2"
+        - "--authorization-mode=ABAC,RBAC"
+        - "--authorization-policy-file=/etc/kubernetes/manifests/defaultpolicy.json"
         - "--v=4"
       volumeMounts:
         - name: "etc-kubernetes"

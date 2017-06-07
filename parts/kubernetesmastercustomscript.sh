@@ -304,6 +304,10 @@ users:
     set -x
 }
 
+function createSuperUserClusterRoleBinding() {
+    kubectl create clusterrolebinding superuser --clusterrole=cluster-admin --user=client
+}
+
 # master and node
 ensureDocker
 configNetworkPolicy
@@ -318,7 +322,8 @@ if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     ensureEtcdDataDir
     ensureEtcd
     ensureApiserver
+
+    createSuperUserClusterRoleBinding
 fi
 
 echo "Install complete successfully"
-

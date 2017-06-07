@@ -84,6 +84,13 @@ write_files:
       name: localclustercontext
     current-context: localclustercontext
 
+- path: /etc/kubernetes/manifests/defaultpolicy.json
+  permissions: "0644"
+  encoding: gzip
+  owner: "root"
+  content: !!binary |
+    API_SERVER_POLICY_B64_GZIP_STR
+
 - path: /etc/kubernetes/manifests/kube-apiserver.yaml
   permissions: "0644"
   encoding: gzip

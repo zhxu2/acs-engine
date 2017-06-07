@@ -24,6 +24,7 @@ const (
 	kubernetesAgentCustomScript         = "kubernetesagentcustomscript.sh"
 	kubeConfigJSON                      = "kubeconfig.json"
 	kubernetesWindowsAgentCustomDataPS1 = "kuberneteswindowssetup.ps1"
+	kubePolicyJSON						= "defaultpolicy.json"
 )
 
 const (
@@ -95,6 +96,7 @@ var kubernetesAritfacts = map[string]string{
 	"MASTER_PROVISION_B64_GZIP_STR": kubernetesMasterCustomScript,
 	"KUBELET_SERVICE_B64_GZIP_STR":  kubernetesKubeletService,
 	"KUBELET_SERVICE_AGENT_B64_GZIP_STR":  kubernetesAgentKubeletSvc,
+	"API_SERVER_POLICY_B64_GZIP_STR":  kubePolicyJSON,
 }
 
 var kubernetesAddonYamls = map[string]string{
