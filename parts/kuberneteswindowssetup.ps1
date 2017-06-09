@@ -206,6 +206,9 @@ Set-DockerNetwork(`$podCIDR)
     netsh advfirewall firewall add rule name="Container: Allow access to node localport 8080" dir=in action=allow protocol=TCP localport=8080
     netsh advfirewall firewall add rule name="Container: Allow access to node localport 8888" dir=in action=allow protocol=TCP localport=8888
     netsh advfirewall firewall add rule name="Container: Allow UDP inbound traffic for Container DNS Port 53" dir=in action=allow localport=53 protocol=UDP
+    
+    # 4194, 10250, 10255 are local kubelet ports used by Master to manage the nodes
+    # We want only the Master to have access to these ports
     netsh advfirewall firewall add rule name="Node: Allow only K8 Master to access localport 4194" dir=in action=allow protocol=TCP localport=4194 remoteip=`${global:MasterIP}
     netsh advfirewall firewall add rule name="Node: Allow only K8 Master to access localport 10250" dir=in action=allow protocol=TCP localport=10250 remoteip=`${global:MasterIP}
     netsh advfirewall firewall add rule name="Node: Allow only K8 Master to access localport 10255" dir=in action=allow protocol=TCP localport=10255 remoteip=`${global:MasterIP}
