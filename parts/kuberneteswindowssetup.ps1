@@ -200,12 +200,11 @@ Get-PodGateway(`$podCIDR)
 
 function
 Set-DockerNetwork(`$podCIDR)
-{
-    # Windows Firewall rules to allow only Master to access Node's kubelet ports
-    # Firewall rules to allow access to container's websockets
-    netsh advfirewall firewall add rule name="Container: Allow access to node localport 8080" dir=in action=allow protocol=TCP localport=8080
-    netsh advfirewall firewall add rule name="Container: Allow access to node localport 8888" dir=in action=allow protocol=TCP localport=8888
-    netsh advfirewall firewall add rule name="Container: Allow UDP inbound traffic for Container DNS Port 53" dir=in action=allow localport=53 protocol=UDP
+{    
+    # Allow all inbound traffic for TCP & UDP for all localports
+    # We do not want to block customer's container deployment port traffic by firewalling
+    netsh advfirewall firewall add rule name="Container: Allow all TCP inbound connections" dir=in action=allow protocol=TCP
+    netsh advfirewall firewall add rule name="Container: Allow all UDP inbound connections" dir=in action=allow protocol=UDP
     
     # 4194, 10250, 10255 are local kubelet ports used by Master to manage the nodes
     # We want only the Master to have access to these ports
