@@ -201,8 +201,8 @@ Get-PodGateway(`$podCIDR)
 function
 Set-DockerNetwork(`$podCIDR)
 {    
-    # Allow all inbound traffic for TCP & UDP for all localports
-    # We do not want to block customer's container deployment port traffic by firewalling
+    # Allow all inbound traffic for TCP and UDP for all localports
+    # We do not want to block customer container deployment port traffic by firewalling
     netsh advfirewall firewall add rule name="Container: Allow all TCP inbound connections" dir=in action=allow protocol=TCP
     netsh advfirewall firewall add rule name="Container: Allow all UDP inbound connections" dir=in action=allow protocol=UDP
     
