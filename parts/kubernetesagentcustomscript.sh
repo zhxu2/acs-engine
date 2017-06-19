@@ -14,6 +14,12 @@ chmod 0644 "${KUBELET_PRIVATE_KEY_PATH}"
 chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
 echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
 
+if [ -f /var/run/reboot-required ]; then
+    REBOOTREQUIRED=true
+else
+    REBOOTREQUIRED=false
+fi
+
 ###########################################################
 # END OF SECRET DATA
 ###########################################################
@@ -96,3 +102,13 @@ ensureKubelet
 
 echo "Install complete successfully"
 
+if $REBOOTREQUIRED; then
+  if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
+    # wait 1 minute to restart master
+    echo 'reboot required, rebooting master in 1 minute'
+    /bin/bash -c "shutdown -r 1 &"
+  else
+    echo 'reboot required, rebooting agent in 1 minute'
+    shutdown -r now
+  fi
+fi
