@@ -29,15 +29,7 @@ param(
 
     [parameter(Mandatory=$true)]
     [ValidateNotNullOrEmpty()]
-    $AzureHostname,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $AADClientId,
-
-    [parameter(Mandatory=$true)]
-    [ValidateNotNullOrEmpty()]
-    $AADClientSecret
+    $AzureHostname
 )
 
 $global:CACertificate = "{{WrapAsVariable "caCertificate"}}"
@@ -107,30 +99,6 @@ Patch-WinNATBinary()
 }
 
 function
-Write-AzureConfig()
-{
-    $azureConfigFile = $global:KubeDir + "\azure.json"
-
-    $azureConfig = @"
-{
-    "tenantId": "$global:TenantId",
-    "subscriptionId": "$global:SubscriptionId",
-    "aadClientId": "$AADClientId",
-    "aadClientSecret": "$AADClientSecret",
-    "resourceGroup": "$global:ResourceGroup",
-    "location": "$Location",
-    "subnetName": "$global:SubnetName",
-    "securityGroupName": "$global:SecurityGroupName",
-    "vnetName": "$global:VNetName",
-    "routeTableName": "$global:RouteTableName",
-    "primaryAvailabilitySetName": "$global:PrimaryAvailabilitySetName"
-}
-"@
-
-    $azureConfig | Out-File -encoding ASCII -filepath "$azureConfigFile"    
-}
-
-function
 Write-KubeConfig()
 {
     $kubeConfigFile = $global:KubeDir + "\config"
@@ -172,7 +140,7 @@ Write-KubernetesStartFiles($podCIDR)
 {
     $KubeletArgList = @("--hostname-override=`$global:AzureHostname","--pod-infra-container-image=kubletwin/pause","--resolv-conf=""""""""","--api-servers=https://`${global:MasterIP}:443","--kubeconfig=c:\k\config")
     $KubeletCommandLine = @"
-c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-container-image=kubletwin/pause --resolv-conf="" --allow-privileged=true --enable-debugging-handlers --api-servers=https://`${global:MasterIP}:443 --cluster-dns=`$global:KubeDnsServiceIp --cluster-domain=cluster.local  --kubeconfig=c:\k\config --hairpin-mode=promiscuous-bridge --v=2 --azure-container-registry-config=c:\k\azure.json
+c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-container-image=kubletwin/pause --resolv-conf="" --allow-privileged=true --enable-debugging-handlers --api-servers=https://`${global:MasterIP}:443 --cluster-dns=`$global:KubeDnsServiceIp --cluster-domain=cluster.local  --kubeconfig=c:\k\config --hairpin-mode=promiscuous-bridge --v=2
 "@
 
     if ($global:KubeBinariesVersion -ne "1.5.3" -and $global:KubeBinariesVersion -ne "1.5.7")
@@ -369,12 +337,10 @@ try
     # the output.
     if ($true) {
         Write-Log "Provisioning $global:DockerServiceName... with IP $MasterIP"
+        net start Docker
 
         Write-Log "download kubelet binaries and unzip"
         Get-KubeBinaries
-
-        Write-Log "Write azure config"
-        Write-AzureConfig
 
         Write-Log "Write kube config"
         Write-KubeConfig
@@ -404,7 +370,7 @@ try
     else 
     {
         # keep for debugging purposes
-        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AzureHostname $AzureHostname -AADClientId $AADClientId -AADClientSecret $AADClientSecret"
+        Write-Log ".\CustomDataSetupScript.ps1 -MasterIP $MasterIP -KubeDnsServiceIp $KubeDnsServiceIp -MasterFQDNPrefix $MasterFQDNPrefix -Location $Location -AgentKey $AgentKey -AzureHostname $AzureHostname"
     }
 }
 catch
