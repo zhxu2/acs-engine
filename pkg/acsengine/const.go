@@ -63,6 +63,18 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"dnsmasq":      "k8s-dns-dnsmasq-amd64:1.13.0",
 		"pause":        "pause-amd64:3.0",
 		"windowszip":   "v1.6.6intwinnat.zip",
+		"nodestatusfreq":   "10s",
+		"nodegraceperiod":   "40s",
+		"podeviction":   "5m0s",
+		"routeperiod":   "10s",
+		"backoff": "false",
+		"backoffduration": "5",
+		"backoffexponent": "1.5",
+		"backoffretries": "6",
+		"backoffjitter": "1",
+		"ratelimit": "false",
+		"ratelimitqps": "1",
+		"ratelimitbucket": "5",
 	},
 	api.Kubernetes162: {
 		"hyperkube":    "hyperkube-amd64:v1.6.2",
@@ -75,6 +87,10 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"dnsmasq":      "k8s-dns-dnsmasq-amd64:1.13.0",
 		"pause":        "pause-amd64:3.0",
 		"windowszip":   "v1.6.2intwinnat.zip",
+		"nodestatusfreq":   "10s",
+		"nodegraceperiod":   "40s",
+		"podeviction":   "5m0s",
+		"routeperiod":   "10s",
 	},
 
 	api.Kubernetes160: {
@@ -88,6 +104,10 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"dnsmasq":      "k8s-dns-dnsmasq-amd64:1.13.0",
 		"pause":        "pause-amd64:3.0",
 		"windowszip":   "v1.6.0intwinnat.zip",
+		"nodestatusfreq":   "10s",
+		"nodegraceperiod":   "40s",
+		"podeviction":   "5m0s",
+		"routeperiod":   "10s",
 	},
 
 	api.Kubernetes157: {
@@ -101,6 +121,10 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"dnsmasq":      "kube-dnsmasq-amd64:1.3",
 		"pause":        "pause-amd64:3.0",
 		"windowszip":   "v1.5.7intwinnat.zip",
+		"nodestatusfreq":   "10s",
+		"nodegraceperiod":   "40s",
+		"podeviction":   "5m0s",
+		"routeperiod":   "10s",
 	},
 
 	api.Kubernetes153: {
@@ -114,6 +138,10 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"dnsmasq":      "kube-dnsmasq-amd64:1.3",
 		"pause":        "pause-amd64:3.0",
 		"windowszip":   "v1.5.3intwinnat.zip",
+		"nodestatusfreq":   "10s",
+		"nodegraceperiod":   "40s",
+		"podeviction":   "5m0s",
+		"routeperiod":   "10s",
 	},
 }
 
