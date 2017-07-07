@@ -14,7 +14,7 @@ write_files:
   content: |
     [Service]
     ExecStart=
-    ExecStart=/usr/bin/docker daemon -H fd:// --storage-driver=overlay
+    ExecStart=/usr/bin/docker daemon -H fd:// --storage-driver=overlay --bip={{WrapAsVariable "dockerBridgeCidr"}}
 
 - path: "/etc/docker/daemon.json"
   permissions: "0644"
@@ -24,8 +24,8 @@ write_files:
       "live-restore": true,
       "log-driver": "json-file",
       "log-opts":  {
-         "max-size": "50m",
-         "max-file": "5"
+         "max-size": "200m",
+         "max-file": "25"
       }
     }
 
@@ -107,8 +107,12 @@ write_files:
     DOCKER_OPTS=
     CUSTOM_CMD=/bin/true
     KUBELET_REGISTER_SCHEDULABLE=true
-    KUBELET_NODE_LABELS=role=agent
+    KUBELET_NODE_LABELS={{ GetKubernetesLabels . }}
     KUBELET_POD_INFRA_CONTAINER_IMAGE={{WrapAsVariable "kubernetesPodInfraContainerSpec"}}
+    KUBELET_NODE_STATUS_UPDATE_FREQUENCY={{WrapAsVariable "kubernetesNodeStatusUpdateFrequency"}}
+    KUBE_CTRL_MGR_NODE_MONITOR_GRACE_PERIOD={{WrapAsVariable "kubernetesCtrlMgrNodeMonitorGracePeriod"}}
+    KUBE_CTRL_MGR_POD_EVICTION_TIMEOUT={{WrapAsVariable "kubernetesCtrlMgrPodEvictionTimeout"}}
+    KUBE_CTRL_MGR_ROUTE_RECONCILIATION_PERIOD={{WrapAsVariable "kubernetesCtrlMgrRouteReconciliationPeriod"}}
 {{if IsKubernetesVersionGe "1.6.0"}}
      KUBELET_FEATURE_GATES=--feature-gates=Accelerators=true
 {{end}}
