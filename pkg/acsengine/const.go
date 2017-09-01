@@ -64,7 +64,7 @@ var KubeImages = map[api.OrchestratorVersion]map[string]string{
 		"addonmanager": "kube-addon-manager-amd64:v6.4-beta.2",
 		"dnsmasq":      "k8s-dns-dnsmasq-amd64:1.13.0",
 		"pause":        "pause-amd64:3.0",
-		"windowszip":   "v1.6.6intwinnat.zip",
+		"windowszip":   "v1.6.6.1intwinnat.zip",
 		"nodestatusfreq":   "1m",
 		"nodegraceperiod":   "5m",
 		"podeviction":   "1m",
