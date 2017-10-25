@@ -11,12 +11,23 @@ import (
 	"time"
 )
 
+// ErrorInfo represents the CI error
+type ErrorInfo struct {
+	TestName string
+	Step     string
+	ErrName  string
+	ErrClass string
+	Location string
+}
+
+// ErrorStat represents the aggregate error count and region
 type ErrorStat struct {
 	Count     int            `json:"count"`
 	Locations map[string]int `json:"locations"`
 }
 
-type ReportMgr struct {
+// Manager represents the details about a build and errors in that build
+type Manager struct {
 	lock        sync.Mutex
 	JobName     string    `json:"job"`
 	BuildNum    int       `json:"build"`
@@ -25,55 +36,66 @@ type ReportMgr struct {
 	StartTime   time.Time `json:"startTime"`
 	Duration    string    `json:"duration"`
 	// Failure map: key=error, value=locations
-	Failures map[string]*ErrorStat `json:"failures"`
+	Failures  map[string]*ErrorStat `json:"failures"`
+	LogErrors logErrors             `json:"-"`
 }
 
-var errorRegexpMap map[string]string
-
-func init() {
-	errorRegexpMap = map[string]string{
-		"azcli run":  "_init__.py",
-		"azcli load": "Error loading command module",
-
-		"VMStartTimedOut":                                "VMStartTimedOut",
-		"OSProvisioningTimedOut":                         "OSProvisioningTimedOut",
-		"VMExtensionProvisioningError":                   "VMExtensionProvisioningError",
-		"VMExtensionProvisioningTimeout":                 "VMExtensionProvisioningTimeout",
-		"InternalExecutionError":                         "InternalExecutionError",
-		"SkuNotAvailable":                                "SkuNotAvailable",
-		"MaxStorageAccountsCountPerSubscriptionExceeded": "MaxStorageAccountsCountPerSubscriptionExceeded",
-		"ImageManagementOperationError":                  "ImageManagementOperationError",
-		"DiskProcessingError":                            "DiskProcessingError",
-		"DiskServiceInternalError":                       "DiskServiceInternalError",
-		"AllocationFailed":                               "AllocationFailed",
-		"NetworkingInternalOperationError":               "NetworkingInternalOperationError",
-		"PlatformFaultDomainCount":                       "platformFaultDomainCount",
-
-		"K8S curl error":                  "curl_error",
-		"K8S no external IP":              "gave up waiting for loadbalancer to get an ingress ip",
-		"K8S nodes not ready":             "gave up waiting for apiserver",
-		"K8S service unreachable":         "gave up waiting for service to be externally reachable",
-		"K8S nginx unreachable":           "failed to get expected response from nginx through the loadbalancer",
-		"DCOS nodes not ready":            "gave up waiting for DCOS nodes",
-		"DCOS marathon validation failed": "dcos/test.sh] marathon validation failed",
-		"DCOS marathon not added":         "dcos/test.sh] gave up waiting for marathon to be added",
-		"DCOS marathon-lb not installed":  "Failed to install marathon-lb",
-	}
+type logErrors struct {
+	LogErrors []logError `json:"Errors"`
 }
 
-func New(jobName string, buildNum int, nDeploys int) *ReportMgr {
-	h := &ReportMgr{}
+type logError struct {
+	Name  string `json:"name"`
+	Class string `json:"class"`
+	Regex string `json:"regex"`
+}
+
+const (
+	// ErrClassDeployment represents an error during deployment
+	ErrClassDeployment = "Deployment"
+	// ErrClassValidation represents an error during validation (tests)
+	ErrClassValidation = "Validation"
+	// ErrClassAzcli represents an error with Azure CLI
+	ErrClassAzcli = "AzCLI"
+	// ErrClassNone represents absence of error
+	ErrClassNone = "None"
+
+	// ErrSuccess represents a success, for some reason
+	ErrSuccess = "Success"
+	// ErrUnknown represents an unknown error
+	ErrUnknown = "UnspecifiedError"
+)
+
+// New creates a new error report
+func New(jobName string, buildNum int, nDeploys int, logErrorsFileName string) *Manager {
+	h := &Manager{}
 	h.JobName = jobName
 	h.BuildNum = buildNum
 	h.Deployments = nDeploys
 	h.Errors = 0
 	h.StartTime = time.Now().UTC()
 	h.Failures = make(map[string]*ErrorStat)
+	h.LogErrors = makeErrorList(logErrorsFileName)
 	return h
 }
 
-func (h *ReportMgr) Copy() *ReportMgr {
-	n := New(h.JobName, h.BuildNum, h.Deployments)
+func makeErrorList(fileName string) logErrors {
+	dummy := logErrors{}
+
+	if fileName != "" {
+		file, e := ioutil.ReadFile(fileName)
+		if e != nil {
+			// do not exit the tests
+			fmt.Printf("ERROR: %v\n", e)
+		}
+		json.Unmarshal(file, &dummy)
+	}
+	return dummy
+}
+
+// Copy TBD needs definition [ToDo]
+func (h *Manager) Copy() *Manager {
+	n := New(h.JobName, h.BuildNum, h.Deployments, "")
 	n.Errors = h.Errors
 	n.StartTime = h.StartTime
 	for e, f := range h.Failures {
@@ -86,22 +108,23 @@ func (h *ReportMgr) Copy() *ReportMgr {
 	return n
 }
 
-func (h *ReportMgr) Process(txt, location string) {
-	for key, regex := range errorRegexpMap {
-		if match, _ := regexp.MatchString(regex, txt); match {
-			h.addFailure(key, map[string]int{location: 1})
-			return
+// Process TBD needs definition
+func (h *Manager) Process(txt, step, testName, location string) *ErrorInfo {
+	for _, logErr := range h.LogErrors.LogErrors {
+		if match, _ := regexp.MatchString(logErr.Regex, txt); match {
+			h.addFailure(logErr.Name, map[string]int{location: 1})
+			return NewErrorInfo(testName, step, logErr.Name, logErr.Class, location)
 		}
 	}
-	h.addFailure("Unspecified error", map[string]int{location: 1})
+	h.addFailure(ErrUnknown, map[string]int{location: 1})
+	return NewErrorInfo(testName, step, ErrUnknown, ErrClassNone, location)
 }
 
-func (h *ReportMgr) addFailure(key string, locations map[string]int) {
+func (h *Manager) addFailure(key string, locations map[string]int) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
 	cnt := 0
-
 	if failure, ok := h.Failures[key]; !ok {
 		locs := make(map[string]int)
 		for l, c := range locations {
@@ -123,7 +146,8 @@ func (h *ReportMgr) addFailure(key string, locations map[string]int) {
 	h.Errors += cnt
 }
 
-func (h *ReportMgr) CreateTestReport(filepath string) error {
+// CreateTestReport TBD needs definition
+func (h *Manager) CreateTestReport(filepath string) error {
 	h.Duration = time.Now().UTC().Sub(h.StartTime).String()
 	data, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
@@ -141,11 +165,11 @@ func (h *ReportMgr) CreateTestReport(filepath string) error {
 	return nil
 }
 
-func (h *ReportMgr) CreateCombinedReport(filepath, testReportFname string) error {
+// CreateCombinedReport TBD needs definition
+func (h *Manager) CreateCombinedReport(filepath, testReportFname string) error {
 	// "COMBINED_PAST_REPORTS" is the number of recent reports in the combined report
 	reports, err := strconv.Atoi(os.Getenv("COMBINED_PAST_REPORTS"))
 	if err != nil || reports <= 0 {
-		fmt.Println("Warning: COMBINED_PAST_REPORTS is not set or invalid. Ignoring")
 		return nil
 	}
 	combinedReport := h.Copy()
@@ -155,7 +179,7 @@ func (h *ReportMgr) CreateCombinedReport(filepath, testReportFname string) error
 		if err != nil {
 			break
 		}
-		testReport := &ReportMgr{}
+		testReport := &Manager{}
 		if err := json.Unmarshal(data, &testReport); err != nil {
 			break
 		}
@@ -167,4 +191,9 @@ func (h *ReportMgr) CreateCombinedReport(filepath, testReportFname string) error
 		}
 	}
 	return combinedReport.CreateTestReport(filepath)
+}
+
+// NewErrorInfo TBD needs definition
+func NewErrorInfo(testName, step, errName, errClass, location string) *ErrorInfo {
+	return &ErrorInfo{TestName: testName, Step: step, ErrName: errName, ErrClass: errClass, Location: location}
 }

@@ -1,6 +1,7 @@
 package v20170701
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -43,8 +44,9 @@ type Properties struct {
 }
 
 // ServicePrincipalProfile contains the client and secret used by the cluster for Azure Resource CRUD
-// The 'Secret' parameter could be either a plain text, or referenced to a secret in a keyvault.
-// In the latter case, the format of the parameter's value should be
+// The 'Secret' parameter should be a secret in plain text.
+// The 'KeyvaultSecretRef' parameter is a reference to a secret in a keyvault.
+// The format of the parameter's value should be
 // "/subscriptions/<SUB_ID>/resourceGroups/<RG_NAME>/providers/Microsoft.KeyVault/vaults/<KV_NAME>/secrets/<NAME>[/<VERSION>]"
 // where:
 //    <SUB_ID> is the subscription ID of the keyvault
@@ -53,8 +55,16 @@ type Properties struct {
 //    <NAME> is the name of the secret.
 //    <VERSION> (optional) is the version of the secret (default: the latest version)
 type ServicePrincipalProfile struct {
-	ClientID string `json:"clientId,omitempty" validate:"required"`
-	Secret   string `json:"secret,omitempty" validate:"required"`
+	ClientID          string             `json:"clientId,omitempty" validate:"required"`
+	Secret            string             `json:"secret,omitempty"`
+	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
+}
+
+// KeyvaultSecretRef is a reference to a secret in a keyvault.
+type KeyvaultSecretRef struct {
+	VaultID       string `json:"vaultID" validate:"required"`
+	SecretName    string `json:"secretName" validate:"required"`
+	SecretVersion string `json:"version,omitempty"`
 }
 
 // CustomProfile specifies custom properties that are used for
@@ -68,10 +78,13 @@ type LinuxProfile struct {
 	AdminUsername string `json:"adminUsername" validate:"required"`
 
 	SSH struct {
-		PublicKeys []struct {
-			KeyData string `json:"keyData"`
-		} `json:"publicKeys" validate:"required,len=1"`
+		PublicKeys []PublicKey `json:"publicKeys" validate:"required,len=1"`
 	} `json:"ssh" validate:"required"`
+}
+
+// PublicKey represents an SSH key for LinuxProfile
+type PublicKey struct {
+	KeyData string `json:"keyData"`
 }
 
 // WindowsProfile represents the Windows configuration passed to the cluster
@@ -101,8 +114,9 @@ const (
 
 // OrchestratorProfile contains Orchestrator properties
 type OrchestratorProfile struct {
-	OrchestratorType    OrchestratorType    `json:"orchestratorType" validate:"required"`
-	OrchestratorVersion OrchestratorVersion `json:"orchestratorVersion"`
+	OrchestratorType    string `json:"orchestratorType" validate:"required"`
+	OrchestratorRelease string `json:"orchestratorRelease"`
+	OrchestratorVersion string `json:"orchestratorVersion" validate:"len=0"`
 }
 
 // MasterProfile represents the definition of master cluster
@@ -121,6 +135,31 @@ type MasterProfile struct {
 	// The format will be FQDN:2376
 	// Not used during PUT, returned as part of GET
 	FQDN string `json:"fqdn,omitempty"`
+}
+
+// UnmarshalJSON unmarshal json using the default behavior
+// And do fields manipulation, such as populating default value
+func (m *MasterProfile) UnmarshalJSON(b []byte) error {
+	// Need to have a alias type to avoid circular unmarshal
+	type aliasMasterProfile MasterProfile
+	mm := aliasMasterProfile{}
+	if e := json.Unmarshal(b, &mm); e != nil {
+		return e
+	}
+	*m = MasterProfile(mm)
+	if m.Count == 0 {
+		// if MasterProfile.Count is missing or 0, set to default 1
+		m.Count = 1
+	}
+
+	if m.FirstConsecutiveStaticIP == "" {
+		// if FirstConsecutiveStaticIP is missing, set to default 10.240.255.5
+		m.FirstConsecutiveStaticIP = "10.240.255.5"
+	}
+
+	// OSDiskSizeGB is an override value. vm sizes have default OS disk sizes.
+	// If it is not set. The user should get the default for the vm size
+	return nil
 }
 
 // AgentPoolProfile represents configuration of VMs running agent
@@ -146,29 +185,59 @@ type AgentPoolProfile struct {
 	subnet string
 }
 
-// OrchestratorType defines orchestrators supported by ACS
-type OrchestratorType string
-
-// OrchestratorVersion defines the version for orchestratorType
-type OrchestratorVersion string
-
-// UnmarshalText decodes OrchestratorType text, do a case insensitive comparison with
-// the defined OrchestratorType constant and set to it if they equal
-func (o *OrchestratorType) UnmarshalText(text []byte) error {
-	s := string(text)
-	switch {
-	case strings.EqualFold(s, string(DCOS)):
-		*o = DCOS
-	case strings.EqualFold(s, string(Kubernetes)):
-		*o = Kubernetes
-	case strings.EqualFold(s, string(Swarm)):
-		*o = Swarm
-	case strings.EqualFold(s, string(DockerCE)):
-		*o = DockerCE
-	default:
-		return fmt.Errorf("OrchestratorType has unknown orchestrator: %s", s)
+// UnmarshalJSON unmarshal json using the default behavior
+// And do fields manipulation, such as populating default value
+func (a *AgentPoolProfile) UnmarshalJSON(b []byte) error {
+	// Need to have a alias type to avoid circular unmarshal
+	type aliasAgentPoolProfile AgentPoolProfile
+	aa := aliasAgentPoolProfile{}
+	if e := json.Unmarshal(b, &aa); e != nil {
+		return e
+	}
+	*a = AgentPoolProfile(aa)
+	if a.Count == 0 {
+		// if AgentPoolProfile.Count is missing or 0, set it to default 1
+		a.Count = 1
 	}
 
+	if string(a.OSType) == "" {
+		// OSType is the operating system type for agents
+		// Set as nullable to support backward compat because
+		// this property was added later.
+		// If the value is null or not set, it defaulted to Linux.
+		a.OSType = Linux
+	}
+
+	// OSDiskSizeGB is an override value. vm sizes have default OS disk sizes.
+	// If it is not set. The user should get the default for the vm size
+	return nil
+}
+
+// UnmarshalJSON unmarshal json using the default behavior
+// And do fields manipulation, such as populating default value
+func (o *OrchestratorProfile) UnmarshalJSON(b []byte) error {
+	// Need to have a alias type to avoid circular unmarshal
+	type aliasOrchestratorProfile OrchestratorProfile
+	op := aliasOrchestratorProfile{}
+	if e := json.Unmarshal(b, &op); e != nil {
+		return e
+	}
+	*o = OrchestratorProfile(op)
+
+	// Unmarshal OrchestratorType, format it as well
+	orchestratorType := o.OrchestratorType
+	switch {
+	case strings.EqualFold(orchestratorType, DCOS):
+		o.OrchestratorType = DCOS
+	case strings.EqualFold(orchestratorType, Kubernetes):
+		o.OrchestratorType = Kubernetes
+	case strings.EqualFold(orchestratorType, Swarm):
+		o.OrchestratorType = Swarm
+	case strings.EqualFold(orchestratorType, DockerCE):
+		o.OrchestratorType = DockerCE
+	default:
+		return fmt.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
+	}
 	return nil
 }
 

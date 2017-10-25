@@ -2,107 +2,88 @@
   "deployments": [
     {
       "cluster_definition": "windows/kubernetes-hybrid.json",
-      "location": "brazilsouth"
+      "category": "windows"
     },
     {
       "cluster_definition": "windows/kubernetes.json",
-      "location": "canadacentral"
+      "category": "windows"
     },
     {
-      "cluster_definition": "dcos-versions/dcos1.8.8.json",
-      "location": "eastus2"
+      "cluster_definition": "dcos-releases/dcos1.9.json",
+      "category": "version"
     },
     {
       "cluster_definition": "disks-managed/dcos-preAttachedDisks-vmas.json",
-      "location": "westcentralus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/dcos-vmss.json",
-      "location": "centralus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/kubernetes-preAttachedDisks-vmas.json",
-      "location": "eastus2"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/kubernetes-vmas.json",
-      "location": "eastus"
-    },
-    {
-      "cluster_definition": "disks-managed/swarm-preAttachedDisks-vmas-windows.json",
-      "location": "northcentralus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/swarm-preAttachedDisks-vmss.json",
-      "location": "westcentralus"
-    },
-    {
-      "cluster_definition": "disks-managed/swarm-vmas-windows.json",
-      "location": "northeurope"
-    },
-    {
-      "cluster_definition": "disks-managed/swarm-vmss.json",
-      "location": "eastus2"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/swarmmode-vmas.json",
-      "location": "southcentralus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-managed/swarmmode-vmss.json",
-      "location": "eastus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-storageaccount/dcos.json",
-      "location": "centralus"
+      "category": "managed-disk"
     },
     {
       "cluster_definition": "disks-storageaccount/kubernetes.json",
-      "location": "eastasia"
-    },
-    {
-      "cluster_definition": "disks-storageaccount/swarm.json",
-      "location": "southeastasia"
+      "category": "sa-disk"
     },
     {
       "cluster_definition": "disks-storageaccount/swarmmode.json",
-      "location": "koreacentral"
-    },
-    {
-      "cluster_definition": "keyvaultcerts/swarm-windows.json",
-      "location": "westus"
+      "category": "sa-disk"
     },
     {
       "cluster_definition": "keyvaultcerts/swarmmode.json",
+      "category": "keyvault",
       "location": "westus"
     },
     {
-      "cluster_definition": "kubernetesversions/kubernetes1.5.7.json",
-      "location": "centralus"
+      "cluster_definition": "kubernetes-releases/kubernetes1.5.json",
+      "category": "version"
     },
     {
       "cluster_definition": "networkpolicy/kubernetes-calico.json",
-      "location": "northcentralus"
+      "category": "network"
     },
     {
-      "cluster_definition": "custom-pod-cidr/kubernetes.json",
-      "location": "ukwest"
+      "cluster_definition": "kubernetes-config/kubernetes-clustersubnet.json",
+      "category": "network"
     },
     {
       "cluster_definition": "v20170131/swarmmode.json",
-      "location": "eastus"
+      "category": "version"
     },
     {
       "cluster_definition": "vnet/dcosvnet.json",
-      "location": "eastus"
+      "category": "network"
     },
     {
       "cluster_definition": "vnet/kubernetesvnet.json",
-      "location": "canadaeast"
+      "category": "network"
     },
     {
       "cluster_definition": "vnet/swarmmodevnet.json",
-      "location": "uksouth"
+      "category": "network"
     }
   ]
 }

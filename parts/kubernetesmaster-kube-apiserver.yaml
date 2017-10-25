@@ -28,16 +28,30 @@ spec:
         - "--tls-cert-file=/etc/kubernetes/certs/apiserver.crt"
         - "--tls-private-key-file=/etc/kubernetes/certs/apiserver.key"
         - "--client-ca-file=/etc/kubernetes/certs/ca.crt"
+        - "--requestheader-client-ca-file=/etc/kubernetes/certs/proxy-ca.crt"
+        - "--proxy-client-cert-file=/etc/kubernetes/certs/proxy.crt"
+        - "--proxy-client-key-file=/etc/kubernetes/certs/proxy.key"
         - "--service-account-key-file=/etc/kubernetes/certs/apiserver.key"
+        - "--oidc-client-id="
+        - "--oidc-issuer-url="
+        - "--oidc-username-claim=oid"
         - "--storage-backend=etcd2"
         - "--authorization-mode=ABAC,RBAC"
         - "--authorization-policy-file=/etc/kubernetes/manifests/defaultpolicy.json"
         - "--v=4"
+        - "<kubernetesEnableRbac>"
+        - "--requestheader-allowed-names="
+        - "--requestheader-extra-headers-prefix=X-Remote-Extra-"
+        - "--requestheader-group-headers=X-Remote-Group"
+        - "--requestheader-username-headers=X-Remote-User"
       volumeMounts:
         - name: "etc-kubernetes"
           mountPath: "/etc/kubernetes"
         - name: "var-lib-kubelet"
           mountPath: "/var/lib/kubelet"
+        - name: "msi"
+          mountPath: "/var/lib/waagent/ManagedIdentity-Settings"
+          readOnly: true
   volumes:
     - name: "etc-kubernetes"
       hostPath:
@@ -45,3 +59,6 @@ spec:
     - name: "var-lib-kubelet"
       hostPath:
         path: "/var/lib/kubelet"
+    - name: msi
+      hostPath:
+        path: "/var/lib/waagent/ManagedIdentity-Settings"
