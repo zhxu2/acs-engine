@@ -265,16 +265,20 @@ setupCRIO() {
 }
 
 function ensureCRIO() {
-	# Enable and start cri-o service
-	# Make sure this is done after networking plugins are installed
-	echo "Enabling and starting cri-o service..."
-	systemctl enable crio crio-shutdown
-	systemctl start crio
+	if grep -q vmx /proc/cpuinfo; then
+		# Enable and start cri-o service
+		# Make sure this is done after networking plugins are installed
+		echo "Enabling and starting cri-o service..."
+		systemctl enable crio crio-shutdown
+		systemctl start crio
+	fi
 }
 
 ensureDocker
-installClearContainersRuntime
-buildCRIO
+if grep -q vmx /proc/cpuinfo; then
+	installClearContainersRuntime
+	buildCRIO
+fi
 configNetworkPolicy
 setAgentPool
 ensureCRIO
