@@ -106,6 +106,7 @@ write_files:
     KUBELET_NETWORK_PLUGIN=kubenet
     KUBELET_MAX_PODS=110
     DOCKER_OPTS=
+    KUBELET_OPTS=
     CUSTOM_CMD=/bin/true
     KUBELET_REGISTER_SCHEDULABLE=true
     KUBELET_NODE_LABELS={{ GetKubernetesLabels . }}
@@ -147,7 +148,7 @@ write_files:
   content: !!binary |
     {{WrapAsVariable "agentProvisionScript"}}
 
-runcmd: 
+runcmd:
 - apt-mark hold walinuxagent{{GetKubernetesAgentPreprovisionYaml .}}
 - apt-get update
 - apt-get install -y apt-transport-https ca-certificates nfs-common
