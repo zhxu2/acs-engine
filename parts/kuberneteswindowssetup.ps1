@@ -93,6 +93,19 @@ Get-KubeBinaries()
 }
 
 function
+Patch-HnsBinary()
+{
+    $hnscurr = $global:KubeDir + "\HostNetSvc.dll"
+    if (Test-Path $hnscurr)
+    {
+        $hnssys = "$env:SystemRoot\System32\HostNetSvc.dll"
+        Stop-Service hns
+        takeown /f $hnssys
+        icacls $hnssys /grant "Administrators:(F)"    
+        Copy-Item $hnscurr $hnssys
+    }
+}
+function
 Write-AzureConfig()
 {
     $azureConfigFile = $global:KubeDir + "\azure.json"
@@ -181,6 +194,7 @@ c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-containe
     $KubeletArgListStr = "@`($KubeletArgListStr`)"
 
     $kubeStartStr = @"
+`$env:CONTAINER_NETWORK = "l2bridge"
 `$global:AzureHostname = "$AzureHostname"
 `$global:MasterIP = "$MasterIP"
 `$global:KubeDnsServiceIp = "$KubeDnsServiceIp"
@@ -354,7 +368,6 @@ New-NSSMService
     c:\k\nssm set Kubelet AppRotateOnline 1
     c:\k\nssm set Kubelet AppRotateSeconds 86400
     c:\k\nssm set Kubelet AppRotateBytes 1048576
-    net start Kubelet
 
     # setup kubeproxy
     c:\k\nssm install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
@@ -373,7 +386,6 @@ New-NSSMService
     c:\k\nssm set Kubeproxy AppRotateOnline 1
     c:\k\nssm set Kubeproxy AppRotateSeconds 86400
     c:\k\nssm set Kubeproxy AppRotateBytes 1048576
-    net start Kubeproxy
 }
 
 function
@@ -402,6 +414,9 @@ try
         Write-Log "download kubelet binaries and unzip"
         Get-KubeBinaries
 
+        Write-Log "Patch hns binary"
+        Patch-HnsBinary
+
         Write-Log "Write azure config"
         Write-AzureConfig
 
@@ -421,6 +436,9 @@ try
         Set-Explorer
 
         Write-Log "Setup Complete"
+
+        Write-Log "Reboot for patching hns to be effective and start kubelet/kubeproxy service"
+        Restart-Computer -Force
     }
     else
     {
