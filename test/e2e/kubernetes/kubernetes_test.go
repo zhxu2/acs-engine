@@ -2,14 +2,13 @@ package kubernetes
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/Azure/acs-engine/pkg/api"
+	"github.com/Azure/acs-engine/pkg/api/common"
 	"github.com/Azure/acs-engine/test/e2e/config"
 	"github.com/Azure/acs-engine/test/e2e/engine"
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/deployment"
@@ -57,10 +56,10 @@ var _ = Describe("Azure Container Cluster using the Kubernetes Orchestrator", fu
 			version, err := node.Version()
 			Expect(err).NotTo(HaveOccurred())
 
-			if eng.ClusterDefinition.Properties.OrchestratorProfile.OrchestratorRelease != "" {
-				Expect(version).To(MatchRegexp("v" + api.KubernetesReleaseToVersion[eng.ClusterDefinition.Properties.OrchestratorProfile.OrchestratorRelease]))
+			if eng.ClusterDefinition.Properties.OrchestratorProfile.OrchestratorVersion != "" {
+				Expect(version).To(MatchRegexp("v" + eng.ClusterDefinition.Properties.OrchestratorProfile.OrchestratorVersion))
 			} else {
-				Expect(version).To(Equal("v" + api.KubernetesReleaseToVersion[api.KubernetesDefaultRelease]))
+				Expect(version).To(Equal("v" + common.KubernetesDefaultVersion))
 			}
 		})
 
@@ -137,18 +136,15 @@ var _ = Describe("Azure Container Cluster using the Kubernetes Orchestrator", fu
 
 			for _, node := range nodeList.Nodes {
 				success := false
-				for i := 0; i < 20; i++ {
+				for i := 0; i < 60; i++ {
 					dashboardURL := fmt.Sprintf("http://%s:%v", node.Status.GetAddressByType("InternalIP").Address, port)
 					curlCMD := fmt.Sprintf("curl --max-time 60 %s", dashboardURL)
-					output, err := exec.Command("ssh", "-i", sshKeyPath, "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", master, curlCMD).CombinedOutput()
-					if err != nil {
-						log.Printf("Error on iteration:%v for node (%s)\n", i, node.Metadata.Name)
-						log.Printf("Command:ssh -i %s -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %s %s\n", sshKeyPath, master, curlCMD)
-						log.Printf("\nOutput:%s\n", string(output))
-					} else {
+					_, err := exec.Command("ssh", "-i", sshKeyPath, "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", master, curlCMD).CombinedOutput()
+					if err == nil {
 						success = true
+						break
 					}
-					time.Sleep(5 * time.Second)
+					time.Sleep(10 * time.Second)
 				}
 				Expect(success).To(BeTrue())
 			}
@@ -198,7 +194,7 @@ var _ = Describe("Azure Container Cluster using the Kubernetes Orchestrator", fu
 			if eng.HasWindowsAgents() {
 				r := rand.New(rand.NewSource(time.Now().UnixNano()))
 				deploymentName := fmt.Sprintf("iis-%s-%v", cfg.Name, r.Intn(99999))
-				iisDeploy, err := deployment.CreateWindowsDeploy("microsoft/iis", deploymentName, "default", 80)
+				iisDeploy, err := deployment.CreateWindowsDeploy("microsoft/iis:windowsservercore-1709", deploymentName, "default", 80)
 				Expect(err).NotTo(HaveOccurred())
 
 				running, err := pod.WaitOnReady(deploymentName, "default", 5*time.Second, cfg.Timeout)
@@ -214,14 +210,14 @@ var _ = Describe("Azure Container Cluster using the Kubernetes Orchestrator", fu
 				Expect(err).NotTo(HaveOccurred())
 				Expect(s.Status.LoadBalancer.Ingress).NotTo(BeEmpty())
 
-				valid := s.Validate("(IIS Windows Server)", 5, 5*time.Second)
+				valid := s.Validate("(IIS Windows Server)", 10, 10*time.Second)
 				Expect(valid).To(BeTrue())
 
 				iisPods, err := iisDeploy.Pods()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(iisPods)).ToNot(BeZero())
 				for _, iisPod := range iisPods {
-					pass, err := iisPod.CheckWindowsOutboundConnection(5*time.Second, cfg.Timeout)
+					pass, err := iisPod.CheckWindowsOutboundConnection(10*time.Second, cfg.Timeout)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(pass).To(BeTrue())
 				}

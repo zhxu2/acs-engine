@@ -806,6 +806,13 @@
       },
       "type": "string"
     },
+    "generatorCode": {
+      "defaultValue": "acsengine",
+      "metadata": {
+        "description": "The generator code used to identify the generator"
+      },
+      "type": "string"
+    },
     "kubeClusterCidr": {
       "defaultValue": "",
       "metadata": {
@@ -1090,6 +1097,15 @@
       "metadata": {
         "description": "The network policy enforcement to use (none|azure|calico)"
       },
+      "type": "string"
+    },
+    "orchestratorName": {
+      "defaultValue": "k8s",
+      "maxLength": 3,
+      "metadata": {
+        "description": "The orchestrator name used to identify the orchestrator.  This must be no more than 3 digits in length, otherwise it will exceed Windows Naming"
+      },
+      "minLength": 3,
       "type": "string"
     },
     "servicePrincipalClientId": {
@@ -1783,9 +1799,6 @@
     },
     {
       "apiVersion": "[variables('apiVersionDefault')]",
-      "dependsOn": [
-        "[concat('Microsoft.Network/routeTables/', variables('routeTableName'))]"
-      ],
       "location": "[variables('location')]",
       "name": "[variables('virtualNetworkName')]",
       "properties": {
@@ -1810,12 +1823,6 @@
         ]
       },
       "type": "Microsoft.Network/virtualNetworks"
-    },
-    {
-      "apiVersion": "[variables('apiVersionDefault')]",
-      "location": "[variables('location')]",
-      "name": "[variables('routeTableName')]",
-      "type": "Microsoft.Network/routeTables"
     },
     {
       "apiVersion": "[variables('apiVersionDefault')]",

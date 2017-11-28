@@ -70,6 +70,22 @@
       },
       "type": "securestring"
     },
+    "generatorCode": {
+      {{PopulateClassicModeDefaultValue "generatorCode"}}
+      "metadata": {
+        "description": "The generator code used to identify the generator"
+      },
+      "type": "string"
+    },
+    "orchestratorName": {
+      {{PopulateClassicModeDefaultValue "orchestratorName"}}
+      "metadata": {
+        "description": "The orchestrator name used to identify the orchestrator.  This must be no more than 3 digits in length, otherwise it will exceed Windows Naming"
+      },
+      "minLength": 3,
+      "maxLength": 3,
+      "type": "string"
+    },
     "dockerBridgeCidr": {
       {{PopulateClassicModeDefaultValue "dockerBridgeCidr"}}
       "metadata": {
@@ -95,6 +111,12 @@
       {{PopulateClassicModeDefaultValue "kubeServiceCidr"}}
       "metadata": {
         "description": "Kubernetes service address space"
+      },
+      "type": "string"
+    },
+    "kubernetesNonMasqueradeCidr": {
+      "metadata": {
+        "description": "kubernetesNonMasqueradeCidr cluster subnet"
       },
       "type": "string"
     },
@@ -144,6 +166,34 @@
       {{PopulateClassicModeDefaultValue "kubernetesTillerSpec"}}
       "metadata": {
         "description": "The container spec for Helm Tiller."
+      },
+      "type": "string"
+    },
+    "kubernetesTillerCPURequests": {
+      {{PopulateClassicModeDefaultValue "kubernetesTillerCPURequests"}}
+      "metadata": {
+        "description": "Helm Tiller CPU Requests."
+      },
+      "type": "string"
+    },
+    "kubernetesTillerMemoryRequests": {
+      {{PopulateClassicModeDefaultValue "kubernetesTillerMemoryRequests"}}
+      "metadata": {
+        "description": "Helm Tiller Memory Requests."
+      },
+      "type": "string"
+    },
+    "kubernetesTillerCPULimit": {
+      {{PopulateClassicModeDefaultValue "kubernetesTillerCPULimit"}}
+      "metadata": {
+        "description": "Helm Tiller CPU Limit."
+      },
+      "type": "string"
+    },
+    "kubernetesTillerMemoryLimit": {
+      {{PopulateClassicModeDefaultValue "kubernetesTillerMemoryLimit"}}
+      "metadata": {
+        "description": "Helm Tiller Memory Limit."
       },
       "type": "string"
     },
@@ -338,4 +388,11 @@
         "description": "The offset into the master pool where to start creating master VMs.  This value can be from 0 to 4, but must be less than masterCount."
       },
       "type": "int"
+    },
+    "etcdDiskSizeGB": {
+      {{PopulateClassicModeDefaultValue "etcdDiskSizeGB"}}
+      "metadata": {
+        "description": "Size in GB to allocate for etcd volume"
+      },
+      "type": "string"
     }

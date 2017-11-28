@@ -136,12 +136,15 @@ func (m *TestManager) Run() error {
 	for index, dep := range m.config.Deployments {
 		go func(index int, dep config.Deployment) {
 			defer m.wg.Done()
-			promToFailInfo := promote.DigitalSignalFilter{}
+			var promToFailInfo promote.DigitalSignalFilter
 			resMap := make(map[string]*ErrorStat)
 			if usePromoteToFailure {
+				testName := strings.Replace(dep.ClusterDefinition, "/", "-", -1)
+				if dep.Location != "" {
+					testName += fmt.Sprintf("-%s", dep.Location)
+				}
 				errorInfo := m.testRun(dep, index, 0, timeout)
 				var failureStr string
-				testName := strings.Replace(dep.ClusterDefinition, "/", "-", -1)
 				if errorInfo != nil {
 					if errorStat, ok := resMap[errorInfo.ErrName]; !ok {
 						resMap[errorInfo.ErrName] = &ErrorStat{errorInfo: errorInfo, testCategory: dep.TestCategory, count: 1}
@@ -215,7 +218,7 @@ func (m *TestManager) Run() error {
 				}
 			}
 
-			sendErrorMetrics(resMap)
+			sendErrorMetrics(resMap, usePromoteToFailure)
 		}(index, dep)
 	}
 	m.wg.Wait()
@@ -322,15 +325,15 @@ func (m *TestManager) testRun(d config.Deployment, index, attempt int, timeout t
 			validateLogFile = fmt.Sprintf("%s/validate-%s.log", logDir, resourceGroup)
 			env = append(env, fmt.Sprintf("LOGFILE=%s", validateLogFile))
 
-			cmd := exec.Command("test/step.sh", "get_orchestrator_release")
+			cmd := exec.Command("test/step.sh", "get_orchestrator_version")
 			cmd.Env = env
 			out, err := cmd.Output()
 			if err != nil {
-				wrileLog(logFile, "Error [%s:%s] %v", "get_orchestrator_release", resourceGroup, err)
-				errorInfo = report.NewErrorInfo(testName, step, "OrchestratorReleaseParsingError", "PreRun", d.Location)
+				wrileLog(logFile, "Error [%s:%s] %v", "get_orchestrator_version", resourceGroup, err)
+				errorInfo = report.NewErrorInfo(testName, step, "OrchestratorVersionParsingError", "PreRun", d.Location)
 				break
 			}
-			env = append(env, fmt.Sprintf("EXPECTED_ORCHESTRATOR_RELEASE=%s", strings.TrimSpace(string(out))))
+			env = append(env, fmt.Sprintf("EXPECTED_ORCHESTRATOR_VERSION=%s", strings.TrimSpace(string(out))))
 
 			cmd = exec.Command("test/step.sh", "get_node_count")
 			cmd.Env = env
@@ -450,13 +453,13 @@ func wrileLog(fname string, format string, args ...interface{}) {
 	}
 }
 
-func sendErrorMetrics(resMap map[string]*ErrorStat) {
+func sendErrorMetrics(resMap map[string]*ErrorStat, usePromoteToFailure bool) {
 	if !enableMetrics {
 		return
 	}
 	for _, errorStat := range resMap {
 		var severity string
-		if errorStat.count > 1 {
+		if usePromoteToFailure || errorStat.count > 1 {
 			severity = "Critical"
 		} else {
 			severity = "Intermittent"
@@ -592,9 +595,15 @@ func mainInternal() error {
 		case "germanynortheast": // Germany cloud
 		case "usgovvirginia": // US Gov cloud
 		case "usgoviowa": // US Gov cloud
+		case "usgovarizona": // US Gov cloud
+		case "usgovtexas": // US Gov cloud
 		case "koreacentral": // TODO make sure our versions of azure-cli support this cloud
 		case "centraluseuap": // TODO determine why this region is flaky
+		case "australiasoutheast": // TODO undo when this region is not flaky
 		case "brazilsouth": // canary region
+		case "ukwest": // no D2V2 capacity
+		case "southcentralus": // no D2V2 capacity
+		case "northcentralus": // no D2V2 capacity
 		default:
 			regions = append(regions, region)
 		}

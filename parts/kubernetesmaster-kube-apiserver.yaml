@@ -35,7 +35,7 @@ spec:
         - "--oidc-client-id="
         - "--oidc-issuer-url="
         - "--oidc-username-claim=oid"
-        - "--storage-backend=etcd2"
+        - "--storage-backend=<etcdApiVersion>"
         - "--authorization-mode=ABAC,RBAC"
         - "--authorization-policy-file=/etc/kubernetes/manifests/defaultpolicy.json"
         - "--v=4"
