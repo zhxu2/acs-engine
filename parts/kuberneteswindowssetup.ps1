@@ -211,7 +211,6 @@ c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-containe
     $KubeletArgListStr = "@`($KubeletArgListStr`)"
 
     $kubeStartStr = @"
-`$env:CONTAINER_NETWORK = "l2bridge"
 `$global:AzureHostname = "$AzureHostname"
 `$global:MasterIP = "$MasterIP"
 `$global:KubeDnsServiceIp = "$KubeDnsServiceIp"
