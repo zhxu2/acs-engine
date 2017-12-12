@@ -136,20 +136,6 @@ write_files:
   content: !!binary |
     MASTER_ADDON_KUBE_PROXY_DAEMONSET_B64_GZIP_STR
 
-- path: /etc/kubernetes/addons/azure-storage-classes.yaml
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    MASTER_ADDON_AZURE_STORAGE_CLASSES_B64_GZIP_STR
-
-- path: /etc/kubernetes/addons/kube-tiller-deployment.yaml
-  permissions: "0644"
-  encoding: gzip
-  owner: "root"
-  content: !!binary |
-    MASTER_ADDON_TILLER_DEPLOYMENT_B64_GZIP_STR
-
 {{if eq .OrchestratorProfile.KubernetesConfig.NetworkPolicy "calico"}}
 - path: /etc/kubernetes/addons/calico-daemonset.yaml
   permissions: "0644"
@@ -245,7 +231,7 @@ write_files:
         AAD_ISSUER_HOST="sts.chinacloudapi.cn"
     fi
 
-    OIDC_ISSUER_URL="https://$AAD_ISSUER_HOST/$AAD_TENANT_ID/" 
+    OIDC_ISSUER_URL="https://$AAD_ISSUER_HOST/$AAD_TENANT_ID/"
     perl -pi -e "s|--oidc-client-id=\K(?=\")|$OIDC_CLIENT_ID| || s|--oidc-issuer-url=\K(?=\")|$OIDC_ISSUER_URL|" "/etc/kubernetes/manifests/kube-apiserver.yaml"
 {{else}}
     sed -i "/--oidc-client-id\|--oidc-issuer-url\|--oidc-username-claim/d" "/etc/kubernetes/manifests/kube-apiserver.yaml"
@@ -256,7 +242,6 @@ write_files:
     sed -i "s|<kubernetesHyperkubeSpec>|{{WrapAsVariable "kubernetesHyperkubeSpec"}}|g" "/etc/kubernetes/manifests/kube-scheduler.yaml"
     sed -i "s|<kubernetesHyperkubeSpec>|{{WrapAsVariable "kubernetesHyperkubeSpec"}}|g; s|<kubeClusterCidr>|{{WrapAsVariable "kubeClusterCidr"}}|g" "/etc/kubernetes/addons/kube-proxy-daemonset.yaml"
     sed -i "s|<kubernetesKubeDNSSpec>|{{WrapAsVariable "kubernetesKubeDNSSpec"}}|g; s|<kubernetesDNSMasqSpec>|{{WrapAsVariable "kubernetesDNSMasqSpec"}}|g; s|<kubernetesExecHealthzSpec>|{{WrapAsVariable "kubernetesExecHealthzSpec"}}|g" "/etc/kubernetes/addons/kube-dns-deployment.yaml"
-    sed -i "s|<kubernetesTillerSpec>|{{WrapAsVariable "kubernetesTillerSpec"}}|g" "/etc/kubernetes/addons/kube-tiller-deployment.yaml"
     sed -i "s|<kubeDNSServiceIP>|{{WrapAsVariable "kubeDNSServiceIP"}}|g" "/etc/kubernetes/addons/kube-dns-deployment.yaml"
 
 {{if .OrchestratorProfile.KubernetesConfig.EnableRbac }}
@@ -325,7 +310,7 @@ write_files:
     fi
     mount $MOUNTPOINT
 
-runcmd: 
+runcmd:
 - apt-mark hold walinuxagent {{GetKubernetesMasterPreprovisionYaml}}
 - /bin/echo DAEMON_ARGS=--name "{{WrapAsVerbatim "variables('masterVMNames')[copyIndex(variables('masterOffset'))]"}}" --initial-advertise-peer-urls "{{WrapAsVerbatim "variables('masterEtcdPeerURLs')[copyIndex(variables('masterOffset'))]"}}" --listen-peer-urls "{{WrapAsVerbatim "variables('masterEtcdPeerURLs')[copyIndex(variables('masterOffset'))]"}}" --advertise-client-urls "{{WrapAsVerbatim "variables('masterEtcdClientURLs')[copyIndex(variables('masterOffset'))]"}}" --listen-client-urls "{{WrapAsVerbatim "concat(variables('masterEtcdClientURLs')[copyIndex(variables('masterOffset'))], ',http://127.0.0.1:', variables('masterEtcdClientPort'))"}}" --initial-cluster-token "k8s-etcd-cluster" --initial-cluster "{{WrapAsVerbatim "variables('masterEtcdClusterStates')[div(variables('masterCount'), 2)]"}} --data-dir "/var/lib/etcddisk"" --initial-cluster-state "new" | tee -a /etc/default/etcd
 - sudo /bin/chown -R etcd:etcd /var/lib/etcd/default

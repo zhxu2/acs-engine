@@ -26,6 +26,24 @@ fi
 
 set -x
 
+# cloudinit runcmd and the extension will run in parallel, this is to ensure
+# runcmd finishes
+ensureRunCommandCompleted()
+{
+	echo "waiting for runcmd to finish"
+	for i in {1..900}; do
+		if [ -e /opt/azure/containers/runcmd.complete ]; then
+			echo "runcmd finished"
+			break
+		fi
+		sleep 1
+	done
+}
+ensureRunCommandCompleted
+
+# make sure walinuxagent doesn't get updated in the middle of running this script
+apt-mark hold walinuxagent
+
 function ensureDocker() {
 	systemctl enable docker
 	systemctl restart docker
@@ -60,6 +78,10 @@ function ensureKubelet() {
 
 function setNetworkPlugin () {
 	sed -i "s/^KUBELET_NETWORK_PLUGIN=.*/KUBELET_NETWORK_PLUGIN=${1}/" /etc/default/kubelet
+}
+
+function setKubeletOpts () {
+	sed -i "s#^KUBELET_OPTS=.*#KUBELET_OPTS=${1}#" /etc/default/kubelet
 }
 
 function setDockerOpts () {
@@ -125,7 +147,55 @@ installClearContainersRuntime() {
 	echo "Enabling and starting Clear Containers proxy service..."
 	systemctl enable cc-proxy
 	systemctl start cc-proxy
+
+	installCNI
+	setNetworkPlugin cni
+	setKubeletOpts " --container-runtime=remote --container-runtime-endpoint=/var/run/crio.sock"
+	setDockerOpts " --volume=/etc/cni/:/etc/cni:ro --volume=/opt/cni/:/opt/cni:ro"
 }
+
+# Install container networking plugins
+installCNI() {
+	CNI_VERSION="v0.6.0"
+	CNI_PLUGIN_DIR="/opt/cni/bin"
+
+	# subshell
+	(
+	echo "Installing CNI plugins..."
+	mkdir -p "${CNI_PLUGIN_DIR}"
+	curl -sSL "https://github.com/containernetworking/plugins/releases/download/${CNI_VERSION}/cni-plugins-amd64-${CNI_VERSION}.tgz" | sudo tar -v -C "${CNI_PLUGIN_DIR}" -xz
+	)
+
+	CNI_CONFIG_DIR="/etc/cni/net.d"
+	mkdir -p "${CNI_CONFIG_DIR}"
+
+	cat >"${CNI_CONFIG_DIR}/10-mynet.conf" <<-EOF
+	{
+		"cniVersion": "0.2.0",
+		"name": "mynet",
+		"type": "bridge",
+		"bridge": "cni0",
+		"isGateway": true,
+		"ipMasq": true,
+		"ipam": {
+			"type": "host-local",
+			"subnet": "10.22.0.0/16",
+			"routes": [
+				{ "dst": "0.0.0.0/0" }
+			]
+		}
+	}
+	EOF
+
+	cat >"${CNI_CONFIG_DIR}/99-loopback.conf" <<-EOF
+	{
+		"cniVersion": "0.2.0",
+		"type": "loopback"
+	}
+	EOF
+
+}
+
 
 # Install Go from source
 installGo() {
@@ -248,8 +318,8 @@ setupCRIO() {
 	echo "Configuring CRI-O..."
 
 	# Configure crio systemd service file
-	systemd_CRI_O_SERVICE_FILE="/usr/local/lib/systemd/system/crio.service"
-	sed -i 's#ExecStart=/usr/local/bin/crio#ExecStart=/usr/local/bin/crio -log-level debug#' "$systemd_CRI_O_SERVICE_FILE"
+	SYSTEMD_CRI_O_SERVICE_FILE="/usr/local/lib/systemd/system/crio.service"
+	sed -i 's#ExecStart=/usr/local/bin/crio#ExecStart=/usr/local/bin/crio -log-level debug#' "$SYSTEMD_CRI_O_SERVICE_FILE"
 
 	# Configure /etc/crio/crio.conf
 	CRI_O_CONFIG="/etc/crio/crio.conf"
@@ -275,16 +345,17 @@ function ensureCRIO() {
 }
 
 ensureDocker
+configNetworkPolicy
 if grep -q vmx /proc/cpuinfo; then
 	installClearContainersRuntime
 	buildCRIO
 fi
-configNetworkPolicy
 setAgentPool
 ensureCRIO
 ensureKubelet
 
 echo "Install complete successfully"
+apt-mark unhold walinuxagent
 
 if $REBOOTREQUIRED; then
 	if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
