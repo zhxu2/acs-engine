@@ -75,11 +75,14 @@ chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
 chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
 echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
 
-AZURE_JSON_PATH="/etc/kubernetes/azure.json"
-touch "${AZURE_JSON_PATH}"
-chmod 0600 "${AZURE_JSON_PATH}"
-chown root:root "${AZURE_JSON_PATH}"
-cat << EOF > "${AZURE_JSON_PATH}"
+# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
+if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
+    echo "APISERVER_PRIVATE_KEY is non-empty, assuming master node, configure azure json."
+    AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+    touch "${AZURE_JSON_PATH}"
+    chmod 0600 "${AZURE_JSON_PATH}"
+    chown root:root "${AZURE_JSON_PATH}"
+    cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud":"${TARGET_ENVIRONMENT}",
     "tenantId": "${TENANT_ID}",
@@ -106,6 +109,9 @@ cat << EOF > "${AZURE_JSON_PATH}"
     "useInstanceMetadata": ${USE_INSTANCE_METADATA}
 }
 EOF
+else
+    echo "APISERVER_PRIVATE_KEY is empty, assuming worker node, skip azure json."
+fi
 
 ###########################################################
 # END OF SECRET DATA
