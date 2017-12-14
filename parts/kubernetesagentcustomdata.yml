@@ -109,6 +109,9 @@ write_files:
     KUBE_CTRL_MGR_ROUTE_RECONCILIATION_PERIOD={{WrapAsVariable "kubernetesCtrlMgrRouteReconciliationPeriod"}}
     KUBELET_IMAGE_GC_HIGH_THRESHOLD={{WrapAsVariable "gchighthreshold"}}
     KUBELET_IMAGE_GC_LOW_THRESHOLD={{WrapAsVariable "gclowthreshold"}}
+    CLOUD_PROVIDER=
+    CLOUD_CONFIG=
+    AZURE_CONTAINER_REGISTRY_CONFIG=
 {{if IsKubernetesVersionGe "1.6.0"}}
     KUBELET_NON_MASQUERADE_CIDR=--non-masquerade-cidr={{WrapAsVariable "kubernetesNonMasqueradeCidr"}}
     KUBELET_FEATURE_GATES=--feature-gates=Accelerators=true
@@ -124,7 +127,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    KUBELET_SERVICE_AGENT_B64_GZIP_STR
+    KUBELET_SERVICE_B64_GZIP_STR
 
 - path: "/opt/azure/containers/kubelet.sh"
   permissions: "0755"
@@ -144,7 +147,7 @@ write_files:
   encoding: gzip
   owner: "root"
   content: !!binary |
-    {{WrapAsVariable "agentProvisionScript"}}
+    {{WrapAsVariable "provisionScript"}}
 
 runcmd:
 - echo `date`,`hostname`, startruncmd>>/opt/m 

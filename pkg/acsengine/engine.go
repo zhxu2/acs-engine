@@ -31,7 +31,6 @@ const (
 	kubernetesMountetcd                      = "kubernetes_mountetcd.sh"
 	kubernetesMasterGenerateProxyCertsScript = "kubernetesmastergenerateproxycertscript.sh"
 	kubernetesAgentCustomDataYaml            = "kubernetesagentcustomdata.yml"
-	kubernetesAgentCustomScript         = "kubernetesagentcustomscript.sh"
 	kubeConfigJSON                           = "kubeconfig.json"
 	kubernetesWindowsAgentCustomDataPS1      = "kuberneteswindowssetup.ps1"
 	kubePolicyJSON						= "defaultpolicy.json"
@@ -75,7 +74,6 @@ const (
 	kubernetesParams              = "kubernetesparams.t"
 	kubernetesWinAgentVars        = "kuberneteswinagentresourcesvmas.t"
 	kubernetesKubeletService      = "kuberneteskubelet.service"
-	kubernetesAgentKubeletSvc    = "kubernetesagentkubelet.service"
 	masterOutputs                 = "masteroutputs.t"
 	masterParams                  = "masterparams.t"
 	swarmBaseFile                 = "swarmbase.t"
@@ -109,7 +107,6 @@ var kubernetesAritfacts = map[string]string{
 	"MASTER_PROVISION_B64_GZIP_STR":            kubernetesMasterCustomScript,
 	"MASTER_GENERATE_PROXY_CERTS_B64_GZIP_STR": kubernetesMasterGenerateProxyCertsScript,
 	"KUBELET_SERVICE_B64_GZIP_STR":             kubernetesKubeletService,
-	"KUBELET_SERVICE_AGENT_B64_GZIP_STR":  kubernetesAgentKubeletSvc,
 	"API_SERVER_POLICY_B64_GZIP_STR":  kubePolicyJSON,
 }
 
@@ -1003,9 +1000,6 @@ func (t *TemplateGenerator) getTemplateFuncMap(cs *api.ContainerService) templat
 			}
 
 			return fmt.Sprintf("\"customData\": \"[base64(concat('%s'))]\",", str)
-		},
-		"GetKubernetesAgentB64Provision": func() string {
-			return getBase64CustomScript(kubernetesAgentCustomScript)
 		},
 		"WriteLinkedTemplatesForExtensions": func() string {
 			extensions := getLinkedTemplatesForExtensions(cs.Properties)

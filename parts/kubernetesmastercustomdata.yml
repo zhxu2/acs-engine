@@ -199,6 +199,9 @@ write_files:
     KUBE_CTRL_MGR_ROUTE_RECONCILIATION_PERIOD={{WrapAsVariable "kubernetesCtrlMgrRouteReconciliationPeriod"}}
     KUBELET_IMAGE_GC_HIGH_THRESHOLD={{WrapAsVariable "gchighthreshold"}}
     KUBELET_IMAGE_GC_LOW_THRESHOLD={{WrapAsVariable "gclowthreshold"}}
+    CLOUD_PROVIDER=azure
+    CLOUD_CONFIG=/etc/kubernetes/azure.json
+    AZURE_CONTAINER_REGISTRY_CONFIG=/etc/kubernetes/azure.json
 {{if IsKubernetesVersionGe "1.6.0"}}
   {{if HasLinuxAgents}}
     KUBELET_NON_MASQUERADE_CIDR=--non-masquerade-cidr={{WrapAsVariable "kubernetesNonMasqueradeCidr"}}
