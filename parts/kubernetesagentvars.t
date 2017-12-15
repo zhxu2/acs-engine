@@ -20,4 +20,3 @@
     "{{.Name}}VnetSubnetID": "[variables('vnetSubnetID')]",
     "{{.Name}}SubnetName": "[variables('subnetName')]",
 {{end}}
-    "agentProvisionScript": "{{GetKubernetesAgentB64Provision}}",
