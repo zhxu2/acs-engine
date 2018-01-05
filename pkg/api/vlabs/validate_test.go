@@ -27,10 +27,6 @@ func Test_OrchestratorProfile_Validate(t *testing.T) {
 		KubernetesConfig: &KubernetesConfig{},
 	}
 
-	if err := o.Validate(false); err != nil {
-		t.Errorf("should not error with empty object: %v", err)
-	}
-
 	o.KubernetesConfig.ClusterSubnet = "10.0.0.0/16"
 	if err := o.Validate(false); err == nil {
 		t.Errorf("should error when KubernetesConfig populated for non-Kubernetes OrchestratorType")
@@ -349,6 +345,42 @@ func Test_ServicePrincipalProfile_ValidateSecretOrKeyvaultSecretRef(t *testing.T
 			t.Error("error should have occurred")
 		}
 	})
+}
+
+func TestValidateKubernetesLabelValue(t *testing.T) {
+
+	validLabelValues := []string{"", "a", "a1", "this--valid--label--is--exactly--sixty--three--characters--long", "123456", "my-label_valid.com"}
+	invalidLabelValues := []string{"a$$b", "-abc", "not.valid.", "This____long____label___is______sixty______four_____chararacters", "Label with spaces"}
+
+	for _, l := range validLabelValues {
+		if err := validateKubernetesLabelValue(l); err != nil {
+			t.Fatalf("Label value %v should not return error: %v", l, err)
+		}
+	}
+
+	for _, l := range invalidLabelValues {
+		if err := validateKubernetesLabelValue(l); err == nil {
+			t.Fatalf("Label value %v should return an error", l)
+		}
+	}
+}
+
+func TestValidateKubernetesLabelKey(t *testing.T) {
+
+	validLabelKeys := []string{"a", "a1", "this--valid--label--is--exactly--sixty--three--characters--long", "123456", "my-label_valid.com", "foo.bar/name", "1.2321.324/key_name.foo", "valid.long.253.characters.label.key.prefix.12345678910.fooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo/my-key"}
+	invalidLabelKeys := []string{"", "a/b/c", ".startswithdot", "spaces in key", "foo/", "/name", "$.$/com", "too-long-254-characters-key-prefix-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------123/name", "wrong-slash\\foo"}
+
+	for _, l := range validLabelKeys {
+		if err := validateKubernetesLabelKey(l); err != nil {
+			t.Fatalf("Label key %v should not return error: %v", l, err)
+		}
+	}
+
+	for _, l := range invalidLabelKeys {
+		if err := validateKubernetesLabelKey(l); err == nil {
+			t.Fatalf("Label key %v should return an error", l)
+		}
+	}
 }
 
 func Test_AadProfile_Validate(t *testing.T) {

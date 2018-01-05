@@ -1,4 +1,6 @@
     "etcdDiskSizeGB": "[parameters('etcdDiskSizeGB')]",
+    "etcdDownloadURLBase": "[parameters('etcdDownloadURLBase')]",
+    "etcdVersion": "[parameters('etcdVersion')]",
     "maxVMsPerPool": 100,
     "apiServerCertificate": "[parameters('apiServerCertificate')]",
 {{ if not IsHostedMaster }}
@@ -14,6 +16,10 @@
     "kubernetesAddonManagerSpec": "[parameters('kubernetesAddonManagerSpec')]",
     "kubernetesAddonResizerSpec": "[parameters('kubernetesAddonResizerSpec')]",
     "kubernetesDashboardSpec": "[parameters('kubernetesDashboardSpec')]",
+    "kubernetesDashboardCPURequests": "[parameters('kubernetesDashboardCPURequests')]",
+    "kubernetesDashboardMemoryRequests": "[parameters('kubernetesDashboardMemoryRequests')]",
+    "kubernetesDashboardCPULimit": "[parameters('kubernetesDashboardCPULimit')]",
+    "kubernetesDashboardMemoryLimit": "[parameters('kubernetesDashboardMemoryLimit')]",
     "kubernetesExecHealthzSpec": "[parameters('kubernetesExecHealthzSpec')]",
     "kubernetesHeapsterSpec": "[parameters('kubernetesHeapsterSpec')]",
     "kubernetesTillerSpec": "[parameters('kubernetesTillerSpec')]",
@@ -90,6 +96,8 @@
     "osImageSKU": "[parameters('osImageSKU')]", 
     "osImageVersion": "[parameters('osImageVersion')]",
     "resourceGroup": "[resourceGroup().name]",
+    "truncatedResourceGroup": "[take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]",
+    "labelResourceGroup": "[if(or(or(endsWith(variables('truncatedResourceGroup'), '-'), endsWith(variables('truncatedResourceGroup'), '_')), endsWith(variables('truncatedResourceGroup'), '.')), concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncatedResourceGroup'))]",
 {{if not IsHostedMaster}}
     "routeTableName": "[concat(variables('masterVMNamePrefix'),'routetable')]",
 {{else}}
@@ -123,7 +131,7 @@
 {{end}}
     "provisionScript": "{{GetKubernetesB64Provision}}",
     "mountetcdScript": "{{GetKubernetesB64Mountetcd}}",
-    "provisionScriptParametersCommon": "[concat('KUBELET_PRIVATE_KEY=',variables('clientPrivateKey'),' NETWORK_POLICY=',variables('networkPolicy'),' MAX_PODS=',variables('maxPods'))]",
+    "provisionScriptParametersCommon": "[concat('KUBELET_PRIVATE_KEY=',variables('clientPrivateKey'),' NETWORK_POLICY=',variables('networkPolicy'),' APISERVER_PUBLIC_KEY=',variables('apiserverCertificate'),' MAX_PODS=',variables('maxPods'))]",
 
 {{if not IsHostedMaster}}
     "provisionScriptParametersMaster": "[concat('TENANT_ID=',variables('tenantID'),' SUBSCRIPTION_ID=',variables('subscriptionId'),' RESOURCE_GROUP=',variables('resourceGroup'),' LOCATION=',variables('location'),' SUBNET=',variables('subnetName'),' NETWORK_SECURITY_GROUP=',variables('nsgName'),' VIRTUAL_NETWORK=',variables('virtualNetworkName'),' VIRTUAL_NETWORK_RESOURCE_GROUP=',variables('virtualNetworkResourceGroupName'),' ROUTE_TABLE=',variables('routeTableName'),' PRIMARY_AVAILABILITY_SET=',variables('primaryAvailabilitySetName'),' SERVICE_PRINCIPAL_CLIENT_ID=',variables('servicePrincipalClientId'),' SERVICE_PRINCIPAL_CLIENT_SECRET=',variables('servicePrincipalClientSecret'),' TARGET_ENVIRONMENT=',variables('targetEnvironment'),' FQDNSuffix=',variables('fqdnEndpointSuffix'),' VNET_CNI_PLUGINS_URL=',variables('vnetCniLinuxPluginsURL'),' CNI_PLUGINS_URL=',variables('cniPluginsURL'),' CLOUDPROVIDER_BACKOFF=',variables('cloudProviderBackoff'),' CLOUDPROVIDER_BACKOFF_RETRIES=',variables('cloudProviderBackoffRetries'),' CLOUDPROVIDER_BACKOFF_EXPONENT=',variables('cloudProviderBackoffExponent'),' CLOUDPROVIDER_BACKOFF_DURATION=',variables('cloudProviderBackoffDuration'),' CLOUDPROVIDER_BACKOFF_JITTER=',variables('cloudProviderBackoffJitter'),' CLOUDPROVIDER_RATELIMIT=',variables('cloudProviderRatelimit'),' CLOUDPROVIDER_RATELIMIT_QPS=',variables('cloudProviderRatelimitQPS'),' CLOUDPROVIDER_RATELIMIT_BUCKET=',variables('cloudProviderRatelimitBucket'),' USE_MANAGED_IDENTITY_EXTENSION=',variables('useManagedIdentityExtension'),' USE_INSTANCE_METADATA=',variables('useInstanceMetadata'),' APISERVER_PRIVATE_KEY=',variables('apiServerPrivateKey'),' CA_CERTIFICATE=',variables('caCertificate'),' CA_PRIVATE_KEY=',variables('caPrivateKey'),' MASTER_FQDN=',variables('masterFqdnPrefix'),' KUBECONFIG_CERTIFICATE=',variables('kubeConfigCertificate'),' KUBECONFIG_KEY=',variables('kubeConfigPrivateKey'),' ADMINUSER=',variables('username'))]",

@@ -75,9 +75,16 @@ chmod 0600 "${KUBELET_PRIVATE_KEY_PATH}"
 chown root:root "${KUBELET_PRIVATE_KEY_PATH}"
 echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
 
+APISERVER_PUBLIC_KEY_PATH="/etc/kubernetes/certs/apiserver.crt"
+touch "${APISERVER_PUBLIC_KEY_PATH}"
+chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
+chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
+echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
+
 # If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     echo "APISERVER_PRIVATE_KEY is non-empty, assuming master node, configure azure json."
+
     AZURE_JSON_PATH="/etc/kubernetes/azure.json"
     touch "${AZURE_JSON_PATH}"
     chmod 0600 "${AZURE_JSON_PATH}"
