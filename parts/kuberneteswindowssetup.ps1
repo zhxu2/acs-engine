@@ -41,6 +41,7 @@ $global:KubeBinariesVersion = "{{WrapAsVariable "kubeBinariesVersion"}}"
 $global:WindowsTelemetryGUID = "{{WrapAsVariable "windowsTelemetryGUID"}}"
 $global:KubeletStartFile = $global:KubeDir + "\kubeletstart.ps1"
 $global:KubeProxyStartFile = $global:KubeDir + "\kubeproxystart.ps1"
+$global:HyperVShimStartFile = $global:KubeDir + "\hypervshimstart.ps1"
 
 $global:TenantId = "{{WrapAsVariable "tenantID"}}"
 $global:SubscriptionId = "{{WrapAsVariable "subscriptionId"}}"
@@ -61,6 +62,22 @@ $global:CNIPath = [Io.path]::Combine("$global:KubeDir", "cni")
 $global:NetworkMode = "L2Bridge"
 $global:CNIConfig = [Io.path]::Combine($global:CNIPath, "config", "`$global:NetworkMode.conf")
 $global:HNSModule = [Io.path]::Combine("$global:KubeDir", "hns.psm1")
+
+function
+Get-AzureHostIP()
+{
+    $ipAddress = (Get-NetIPAddress -InterfaceIndex (Get-NetAdapter| ? ifAlias -like "Ethernet*").ifIndex -AddressFamily IPv4).IPAddress
+    if ($ipAddress -is [array])
+    {
+        return $ipAddress[0]
+    }
+    else
+    {
+        return $ipAddress
+    }
+}
+
+$global:AzureHostIP = Get-AzureHostIP
 
 filter Timestamp {"$(Get-Date -Format o): $_"}
 
@@ -84,6 +101,19 @@ Get-KubeBinaries()
     Expand-Archive -path $zipfile -DestinationPath C:\
 }
 
+function
+Patch-HnsBinary()
+{
+    $hnscurr = $global:KubeDir + "\HostNetSvc.dll"
+    if (Test-Path $hnscurr)
+    {
+        $hnssys = "$env:SystemRoot\System32\HostNetSvc.dll"
+        Stop-Service hns
+        takeown /f $hnssys
+        icacls $hnssys /grant "Administrators:(F)"    
+        Copy-Item $hnscurr $hnssys
+    }
+}
 function
 Write-KubeConfig()
 {
@@ -126,7 +156,7 @@ Write-KubernetesStartFiles($podCIDR)
 {
     $KubeletArgList = @("--hostname-override=`$global:AzureHostname","--pod-infra-container-image=kubletwin/pause","--resolv-conf=""""""""","--kubeconfig=c:\k\config")
     $KubeletCommandLine = @"
-c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-container-image=kubletwin/pause --resolv-conf="" --allow-privileged=true --enable-debugging-handlers --cluster-dns=`$global:KubeDnsServiceIp --cluster-domain=cluster.local  --kubeconfig=c:\k\config --hairpin-mode=promiscuous-bridge --v=2 --runtime-request-timeout=10m
+c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-container-image=kubletwin/pause --resolv-conf="" --allow-privileged=true --enable-debugging-handlers --cluster-dns=`$global:KubeDnsServiceIp --cluster-domain=cluster.local  --kubeconfig=c:\k\config --hairpin-mode=promiscuous-bridge --v=2 --runtime-request-timeout=10m --container-runtime=remote --container-runtime-endpoint=tcp://$global:AzureHostIP`:10012
 "@
 
     if ($global:KubeBinariesVersion -lt "1.8.0")
@@ -285,7 +315,7 @@ catch
 
     $kubeProxyStartStr = @"
 `$env:KUBE_NETWORK = "l2bridge"
-`$global:NetworkMode = "L2Bridge"
+`$global:NetworkMode = "$global:NetworkMode"
 `$hnsNetwork = Get-HnsNetwork | ? Name -EQ `$global:NetworkMode.ToLower()
 while (!`$hnsNetwork)
 {
@@ -297,6 +327,19 @@ c:\k\kube-proxy.exe --v=3 --proxy-mode=kernelspace --hostname-override=$AzureHos
 "@
 
     $kubeProxyStartStr | Out-File -encoding ASCII -filepath $global:KubeProxyStartFile
+
+    $hyperVShimStartStr = @"
+`$global:NetworkMode = "$global:NetworkMode"
+`$global:CNIConfig = "$global:CNIConfig"
+while (!(Test-Path -Path `$global:CNIConfig))
+{
+    Start-Sleep 10
+}
+
+c:\k\hypervshim.exe --listen=tcp://$global:AzureHostIP`:10012 --v=3 --sandbox-image=kubletwin/pause --network-bin-dir=$global:CNIPath --network-conf-dir=$global:CNIPath\config --docker-image-pull-deadline=20m --root-dir=$global:KubeDir\hypervshim
+"@
+
+    $hyperVShimStartStr | Out-File -encoding ASCII -filepath $global:HyperVShimStartFile
 }
 
 function
@@ -312,15 +355,14 @@ New-NSSMService
     c:\k\nssm set Kubelet ObjectName LocalSystem
     c:\k\nssm set Kubelet Type SERVICE_WIN32_OWN_PROCESS
     c:\k\nssm set Kubelet AppThrottle 1500
-    c:\k\nssm set Kubelet AppStdout C:\k\kubelet.log
-    c:\k\nssm set Kubelet AppStderr C:\k\kubelet.err.log
+    c:\k\nssm set Kubelet AppStdout $global:KubeDir\kubelet.log
+    c:\k\nssm set Kubelet AppStderr $global:KubeDir\kubelet.err.log
     c:\k\nssm set Kubelet AppStdoutCreationDisposition 4
     c:\k\nssm set Kubelet AppStderrCreationDisposition 4
     c:\k\nssm set Kubelet AppRotateFiles 1
     c:\k\nssm set Kubelet AppRotateOnline 1
     c:\k\nssm set Kubelet AppRotateSeconds 86400
     c:\k\nssm set Kubelet AppRotateBytes 1048576
-    net start Kubelet
 
     # setup kubeproxy
     c:\k\nssm install Kubeproxy C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
@@ -333,13 +375,31 @@ New-NSSMService
     c:\k\nssm set Kubeproxy ObjectName LocalSystem
     c:\k\nssm set Kubeproxy Type SERVICE_WIN32_OWN_PROCESS
     c:\k\nssm set Kubeproxy AppThrottle 1500
-    c:\k\nssm set Kubeproxy AppStdout C:\k\kubeproxy.log
-    c:\k\nssm set Kubeproxy AppStderr C:\k\kubeproxy.err.log
+    c:\k\nssm set Kubeproxy AppStdout $global:KubeDir\kubeproxy.log
+    c:\k\nssm set Kubeproxy AppStderr $global:KubeDir\kubeproxy.err.log
     c:\k\nssm set Kubeproxy AppRotateFiles 1
     c:\k\nssm set Kubeproxy AppRotateOnline 1
     c:\k\nssm set Kubeproxy AppRotateSeconds 86400
     c:\k\nssm set Kubeproxy AppRotateBytes 1048576
-    net start Kubeproxy
+
+    # setup hypervshim
+    mkdir $global:KubeDir\hypervshim
+    c:\k\nssm install Hypervshim C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    c:\k\nssm set Hypervshim AppDirectory $global:KubeDir\hypervshim
+    c:\k\nssm set Hypervshim AppParameters $global:HyperVShimStartFile
+    c:\k\nssm set Hypervshim DisplayName Hypervshim
+    c:\k\nssm set Kubeproxy DependOnService Kubelet
+    c:\k\nssm set Hypervshim Description Hypervshim
+    c:\k\nssm set Hypervshim Start SERVICE_AUTO_START
+    c:\k\nssm set Hypervshim ObjectName LocalSystem
+    c:\k\nssm set Hypervshim Type SERVICE_WIN32_OWN_PROCESS
+    c:\k\nssm set Hypervshim AppThrottle 1500
+    c:\k\nssm set Hypervshim AppStdout $global:KubeDir\hypervshim.log
+    c:\k\nssm set Hypervshim AppStderr $global:KubeDir\hypervshim.err.log
+    c:\k\nssm set Hypervshim AppRotateFiles 1
+    c:\k\nssm set Hypervshim AppRotateOnline 1
+    c:\k\nssm set Hypervshim AppRotateSeconds 86400
+    c:\k\nssm set Hypervshim AppRotateBytes 1048576
 }
 
 function
@@ -372,6 +432,9 @@ try
         Write-Log "download kubelet binaries and unzip"
         Get-KubeBinaries
 
+        Write-Log "Patch hns binary"
+        Patch-HnsBinary
+
         Write-Log "Write kube config"
         Write-KubeConfig
 
@@ -388,6 +451,9 @@ try
         Set-Explorer
 
         Write-Log "Setup Complete"
+
+        Write-Log "Reboot for patching hns to be effective and start kubelet/kubeproxy service"
+        Restart-Computer -Force
     }
     else
     {
