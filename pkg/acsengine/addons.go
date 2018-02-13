@@ -16,11 +16,6 @@ type kubernetesFeatureSetting struct {
 func kubernetesAddonSettingsInit(profile *api.Properties) []kubernetesFeatureSetting {
 	return []kubernetesFeatureSetting{
 		{
-			"kubernetesmasteraddons-heapster-deployment.yaml",
-			"kube-heapster-deployment.yaml",
-			true,
-		},
-		{
 			"kubernetesmasteraddons-kube-dns-deployment.yaml",
 			"kube-dns-deployment.yaml",
 			true,

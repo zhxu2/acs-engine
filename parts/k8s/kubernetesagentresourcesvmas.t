@@ -27,7 +27,15 @@
               {{if eq $seq 1}}
               "primary": true,
               {{end}}
+              {{if eq $.Name "system"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(50, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else if eq $.Name "agentpool1"}}
+              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(100, int(variables('masterFirstAddrOctet4')))))]",
+              "privateIPAllocationMethod": "Static",
+              {{else}}
               "privateIPAllocationMethod": "Dynamic",
+              {{end}}
               "subnet": {
                 "id": "[variables('{{$.Name}}VnetSubnetID')]"
               }
@@ -69,10 +77,25 @@
         "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
       ],
       {{end}}
+      "kind": "Storage",
       "location": "[variables('location')]",
       "name": "[concat(variables('storageAccountPrefixes')[mod(add(copyIndex(),variables('{{.Name}}StorageAccountOffset')),variables('storageAccountPrefixesCount'))],variables('storageAccountPrefixes')[div(add(copyIndex(),variables('{{.Name}}StorageAccountOffset')),variables('storageAccountPrefixesCount'))],variables('{{.Name}}AccountName'))]",
       "properties": {
-        "accountType": "[variables('vmSizesMap')[variables('{{.Name}}VMSize')].storageAccountType]"
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          }
+        },
+        "supportsHttpsTrafficOnly": true
+      },
+      "sku": {
+        "name": "[variables('vmSizesMap')[variables('{{.Name}}VMSize')].storageAccountType]"
       },
       "type": "Microsoft.Storage/storageAccounts"
     },
@@ -88,10 +111,25 @@
         "[concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))]"
       ],
       {{end}}
+      "kind": "Storage",
       "location": "[variables('location')]",
       "name": "[concat(variables('storageAccountPrefixes')[mod(add(copyIndex(variables('dataStorageAccountPrefixSeed')),variables('{{.Name}}StorageAccountOffset')),variables('storageAccountPrefixesCount'))],variables('storageAccountPrefixes')[div(add(copyIndex(variables('dataStorageAccountPrefixSeed')),variables('{{.Name}}StorageAccountOffset')),variables('storageAccountPrefixesCount'))],variables('{{.Name}}DataAccountName'))]",
       "properties": {
-        "accountType": "[variables('vmSizesMap')[variables('{{.Name}}VMSize')].storageAccountType]"
+        "encryption": {
+          "keySource": "Microsoft.Storage",
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          }
+        },
+        "supportsHttpsTrafficOnly": true
+      },
+      "sku": {
+        "name": "[variables('vmSizesMap')[variables('{{.Name}}VMSize')].storageAccountType]"
       },
       "type": "Microsoft.Storage/storageAccounts"
     },
