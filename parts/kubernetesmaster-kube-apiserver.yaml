@@ -36,6 +36,8 @@ spec:
         - "--oidc-issuer-url="
         - "--oidc-username-claim=oid"
         - "--storage-backend=<etcdApiVersion>"
+        - "--authorization-mode=ABAC,RBAC"
+        - "--authorization-policy-file=/etc/kubernetes/manifests/defaultpolicy.json"
         - "--v=4"
         - "<kubernetesEnableRbac>"
         - "--requestheader-allowed-names="

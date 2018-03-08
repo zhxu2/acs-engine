@@ -41,11 +41,7 @@ echo `date`,`hostname`, startscript>>/opt/m
 # A delay to start the kubernetes processes is necessary
 # if a reboot is required.  Otherwise, the agents will encounter issue: 
 # https://github.com/kubernetes/kubernetes/issues/41185
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
+REBOOTREQUIRED=false
 
 # If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
@@ -85,11 +81,15 @@ chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
 chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
 echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
 
-AZURE_JSON_PATH="/etc/kubernetes/azure.json"
-touch "${AZURE_JSON_PATH}"
-chmod 0600 "${AZURE_JSON_PATH}"
-chown root:root "${AZURE_JSON_PATH}"
-cat << EOF > "${AZURE_JSON_PATH}"
+# If APISERVER_PRIVATE_KEY is empty, then we are not on the master
+if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
+    echo "APISERVER_PRIVATE_KEY is non-empty, assuming master node, configure azure json."
+
+    AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+    touch "${AZURE_JSON_PATH}"
+    chmod 0600 "${AZURE_JSON_PATH}"
+    chown root:root "${AZURE_JSON_PATH}"
+    cat << EOF > "${AZURE_JSON_PATH}"
 {
     "cloud":"${TARGET_ENVIRONMENT}",
     "tenantId": "${TENANT_ID}",
@@ -116,6 +116,9 @@ cat << EOF > "${AZURE_JSON_PATH}"
     "useInstanceMetadata": ${USE_INSTANCE_METADATA}
 }
 EOF
+else
+    echo "APISERVER_PRIVATE_KEY is empty, assuming worker node, skip azure json."
+fi
 
 ###########################################################
 # END OF SECRET DATA
@@ -418,6 +421,8 @@ if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     ensureEtcdDataDir
     ensureEtcd
     ensureApiserver
+
+    /usr/local/bin/kubectl create clusterrolebinding superuser --clusterrole=cluster-admin --user=client
 fi
 
 # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635
@@ -427,6 +432,12 @@ sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/h
 # If APISERVER_PRIVATE_KEY is empty, then we are not on the master
 echo "Install complete successfully"
 apt-mark unhold walinuxagent
+
+if [ -f /var/run/reboot-required ]; then
+    REBOOTREQUIRED=true
+else
+    REBOOTREQUIRED=false
+fi
 
 if $REBOOTREQUIRED; then
   # wait 1 minute to restart node, so that the custom script extension can complete

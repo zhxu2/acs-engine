@@ -33,6 +33,7 @@ const (
 	kubernetesAgentCustomDataYaml            = "kubernetesagentcustomdata.yml"
 	kubeConfigJSON                           = "kubeconfig.json"
 	kubernetesWindowsAgentCustomDataPS1      = "kuberneteswindowssetup.ps1"
+	kubePolicyJSON						= "defaultpolicy.json"
 )
 
 const (
@@ -106,6 +107,7 @@ var kubernetesAritfacts = map[string]string{
 	"MASTER_PROVISION_B64_GZIP_STR":            kubernetesMasterCustomScript,
 	"MASTER_GENERATE_PROXY_CERTS_B64_GZIP_STR": kubernetesMasterGenerateProxyCertsScript,
 	"KUBELET_SERVICE_B64_GZIP_STR":             kubernetesKubeletService,
+	"API_SERVER_POLICY_B64_GZIP_STR":  kubePolicyJSON,
 }
 
 var kubernetesAritfacts15 = map[string]string{
@@ -115,12 +117,9 @@ var kubernetesAritfacts15 = map[string]string{
 }
 
 var kubernetesAddonYamls = map[string]string{
-	"MASTER_ADDON_HEAPSTER_DEPLOYMENT_B64_GZIP_STR":             "kubernetesmasteraddons-heapster-deployment.yaml",
 	"MASTER_ADDON_KUBE_DNS_DEPLOYMENT_B64_GZIP_STR":             "kubernetesmasteraddons-kube-dns-deployment.yaml",
 	"MASTER_ADDON_KUBE_PROXY_DAEMONSET_B64_GZIP_STR":            "kubernetesmasteraddons-kube-proxy-daemonset.yaml",
-	"MASTER_ADDON_KUBERNETES_DASHBOARD_DEPLOYMENT_B64_GZIP_STR": "kubernetesmasteraddons-kubernetes-dashboard-deployment.yaml",
 	"MASTER_ADDON_AZURE_STORAGE_CLASSES_B64_GZIP_STR":           "kubernetesmasteraddons-azure-storage-classes.yaml",
-	"MASTER_ADDON_TILLER_DEPLOYMENT_B64_GZIP_STR":               "kubernetesmasteraddons-tiller-deployment.yaml",
 }
 
 var kubernetesAddonYamls15 = map[string]string{
