@@ -700,8 +700,6 @@ if [[ ! -z "${APISERVER_PRIVATE_KEY}" ]]; then
     ensureEtcdDataDir
     ensureEtcd
     ensureApiserver
-
-    /usr/local/bin/kubectl create clusterrolebinding superuser --clusterrole=cluster-admin --user=client
 fi
 
 if [[ $OS == $UBUNTU_OS_NAME ]]; then
