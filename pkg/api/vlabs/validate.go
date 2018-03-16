@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/pkg/api/common"
-	"github.com/satori/uuid"
+	"github.com/Azure/acs-engine/pkg/helpers"
+	"github.com/satori/go.uuid"
 	validator "gopkg.in/go-playground/validator.v9"
 )
 
@@ -20,7 +21,11 @@ var (
 	labelValueRegex *regexp.Regexp
 	labelKeyRegex   *regexp.Regexp
 	// Any version has to be mirrored in https://acs-mirror.azureedge.net/github-coreos/etcd-v[Version]-linux-amd64.tar.gz
-	etcdValidVersions = [...]string{"2.5.2", "3.1.10"}
+	etcdValidVersions = [...]string{"2.2.5", "2.3.0", "2.3.1", "2.3.2", "2.3.3", "2.3.4", "2.3.5", "2.3.6", "2.3.7", "2.3.8",
+		"3.0.0", "3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.0.5", "3.0.6", "3.0.7", "3.0.8", "3.0.9", "3.0.10", "3.0.11", "3.0.12", "3.0.13", "3.0.14", "3.0.15", "3.0.16", "3.0.17",
+		"3.1.0", "3.1.1", "3.1.2", "3.1.2", "3.1.3", "3.1.4", "3.1.5", "3.1.6", "3.1.7", "3.1.8", "3.1.9", "3.1.10",
+		"3.2.0", "3.2.1", "3.2.2", "3.2.3", "3.2.4", "3.2.5", "3.2.6", "3.2.7", "3.2.8", "3.2.9", "3.2.11", "3.2.12",
+		"3.2.13", "3.2.14", "3.2.15", "3.2.16", "3.3.0", "3.3.1"}
 )
 
 const (
@@ -37,20 +42,16 @@ func init() {
 }
 
 func isValidEtcdVersion(etcdVersion string) error {
-	// Empty versions is defaulted to 2.5.2 on the generalized api model
-	// after vlabs validation. Empty "" version is a valid version for etcd
-	if "" == etcdVersion {
+	// "" is a valid etcdVersion that maps to DefaultEtcdVersion
+	if etcdVersion == "" {
 		return nil
 	}
-	// We have a version set by user
-	validVersions := "" // a bag of valid versions
 	for _, ver := range etcdValidVersions {
 		if ver == etcdVersion {
 			return nil
 		}
-		validVersions = fmt.Sprintf("%s %s", validVersions, ver)
 	}
-	return fmt.Errorf("Invalid etcd version(%s), valid versions are%s", etcdVersion, validVersions)
+	return fmt.Errorf("Invalid etcd version(%s), valid versions are%s", etcdVersion, etcdValidVersions)
 }
 
 // Validate implements APIObject
@@ -64,7 +65,8 @@ func (o *OrchestratorProfile) Validate(isUpdate bool) error {
 			version := common.RationalizeReleaseAndVersion(
 				o.OrchestratorType,
 				o.OrchestratorRelease,
-				o.OrchestratorVersion)
+				o.OrchestratorVersion,
+				false)
 			if version == "" {
 				return fmt.Errorf("OrchestratorProfile is not able to be rationalized, check supported Release or Version")
 			}
@@ -74,7 +76,8 @@ func (o *OrchestratorProfile) Validate(isUpdate bool) error {
 			version := common.RationalizeReleaseAndVersion(
 				o.OrchestratorType,
 				o.OrchestratorRelease,
-				o.OrchestratorVersion)
+				o.OrchestratorVersion,
+				false)
 			if version == "" {
 				return fmt.Errorf("OrchestratorProfile is not able to be rationalized, check supported Release or Version")
 			}
@@ -85,18 +88,50 @@ func (o *OrchestratorProfile) Validate(isUpdate bool) error {
 					return err
 				}
 				if o.KubernetesConfig.EnableAggregatedAPIs {
-					if o.OrchestratorVersion == common.KubernetesVersion1Dot5Dot7 ||
-						o.OrchestratorVersion == common.KubernetesVersion1Dot5Dot8 ||
-						o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot6 ||
+					if o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot6 ||
 						o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot9 ||
 						o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot11 {
 						return fmt.Errorf("enableAggregatedAPIs is only available in Kubernetes version %s or greater; unable to validate for Kubernetes version %s",
 							"1.7.0", o.OrchestratorVersion)
 					}
 
-					if !o.KubernetesConfig.EnableRbac {
-						return fmt.Errorf("enableAggregatedAPIs requires the enableRbac feature as a prerequisite")
+					if o.KubernetesConfig.EnableRbac != nil {
+						if !*o.KubernetesConfig.EnableRbac {
+							return fmt.Errorf("enableAggregatedAPIs requires the enableRbac feature as a prerequisite")
+						}
 					}
+
+					if helpers.IsTrueBoolPointer(o.KubernetesConfig.EnableDataEncryptionAtRest) {
+						if o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot6 ||
+							o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot9 ||
+							o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot11 {
+							return fmt.Errorf("enableDataEncryptionAtRest is only available in Kubernetes version %s or greater; unable to validate for Kubernetes version %s",
+								"1.7.0", o.OrchestratorVersion)
+						}
+					}
+				}
+				if helpers.IsTrueBoolPointer(o.KubernetesConfig.EnablePodSecurityPolicy) {
+					if !helpers.IsTrueBoolPointer(o.KubernetesConfig.EnableRbac) {
+						return fmt.Errorf("enablePodSecurityPolicy requires the enableRbac feature as a prerequisite")
+					}
+					if o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot6 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot9 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot6Dot11 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot0 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot1 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot2 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot4 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot5 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot7 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot9 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot10 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot12 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot13 ||
+						o.OrchestratorVersion == common.KubernetesVersion1Dot7Dot14 {
+						return fmt.Errorf("enablePodSecurityPolicy is only supported in acs-engine for Kubernetes version %s or greater; unable to validate for Kubernetes version %s",
+							"1.8.0", o.OrchestratorVersion)
+					}
+
 				}
 			}
 
@@ -110,7 +145,8 @@ func (o *OrchestratorProfile) Validate(isUpdate bool) error {
 			version := common.RationalizeReleaseAndVersion(
 				o.OrchestratorType,
 				o.OrchestratorRelease,
-				o.OrchestratorVersion)
+				o.OrchestratorVersion,
+				false)
 			if version == "" {
 				patchVersion := common.GetValidPatchVersion(o.OrchestratorType, o.OrchestratorVersion)
 				// if there isn't a supported patch version for this version fail
@@ -129,15 +165,13 @@ func (o *OrchestratorProfile) Validate(isUpdate bool) error {
 	if o.OrchestratorType != DCOS && o.DcosConfig != nil && (*o.DcosConfig != DcosConfig{}) {
 		return fmt.Errorf("DcosConfig can be specified only when OrchestratorType is DCOS")
 	}
+
 	return nil
 }
 
 // Validate implements APIObject
 func (m *MasterProfile) Validate() error {
-	if e := validateDNSName(m.DNSPrefix); e != nil {
-		return e
-	}
-	return nil
+	return validateDNSName(m.DNSPrefix)
 }
 
 // Validate implements APIObject
@@ -208,8 +242,8 @@ func (o *OrchestratorProfile) ValidateForUpgrade() error {
 		return fmt.Errorf("Upgrade is not supported for orchestrator %s", o.OrchestratorType)
 	case Kubernetes:
 		switch o.OrchestratorVersion {
-		case common.KubernetesVersion1Dot6Dot12:
-		case common.KubernetesVersion1Dot7Dot10:
+		case common.KubernetesVersion1Dot6Dot13:
+		case common.KubernetesVersion1Dot7Dot14:
 		default:
 			return fmt.Errorf("Upgrade to Kubernetes version %s is not supported", o.OrchestratorVersion)
 		}
@@ -287,6 +321,11 @@ func (profile *AADProfile) Validate() error {
 			return fmt.Errorf("tenantID '%v' is invalid", profile.TenantID)
 		}
 	}
+	if len(profile.AdminGroupID) > 0 {
+		if _, err := uuid.FromString(profile.AdminGroupID); err != nil {
+			return fmt.Errorf("adminGroupID '%v' is invalid", profile.AdminGroupID)
+		}
+	}
 	return nil
 }
 
@@ -299,6 +338,9 @@ func (a *Properties) Validate(isUpdate bool) error {
 		return e
 	}
 	if e := a.validateNetworkPolicy(); e != nil {
+		return e
+	}
+	if e := a.validateContainerRuntime(); e != nil {
 		return e
 	}
 	if e := a.MasterProfile.Validate(); e != nil {
@@ -392,14 +434,24 @@ func (a *Properties) Validate(isUpdate bool) error {
 			case Swarm:
 			case SwarmMode:
 			case Kubernetes:
-				version := common.RationalizeReleaseAndVersion(
-					a.OrchestratorProfile.OrchestratorType,
-					a.OrchestratorProfile.OrchestratorRelease,
-					a.OrchestratorProfile.OrchestratorVersion)
+				var version string
+				if a.HasWindows() {
+					version = common.RationalizeReleaseAndVersion(
+						a.OrchestratorProfile.OrchestratorType,
+						a.OrchestratorProfile.OrchestratorRelease,
+						a.OrchestratorProfile.OrchestratorVersion,
+						true)
+				} else {
+					version = common.RationalizeReleaseAndVersion(
+						a.OrchestratorProfile.OrchestratorType,
+						a.OrchestratorProfile.OrchestratorRelease,
+						a.OrchestratorProfile.OrchestratorVersion,
+						false)
+				}
 				if version == "" {
 					return fmt.Errorf("OrchestratorProfile is not able to be rationalized, check supported Release or Version")
 				}
-				if _, ok := common.AllKubernetesWindowsSupportedVersions[version]; !ok {
+				if supported, ok := common.AllKubernetesWindowsSupportedVersions[version]; !ok || !supported {
 					return fmt.Errorf("Orchestrator %s version %s does not support Windows", a.OrchestratorProfile.OrchestratorType, version)
 				}
 			default:
@@ -440,6 +492,12 @@ func (a *Properties) Validate(isUpdate bool) error {
 		}
 	}
 
+	if a.OrchestratorProfile.OrchestratorType != DCOS && a.WindowsProfile != nil {
+		if a.WindowsProfile.WindowsImageSourceURL != "" {
+			return fmt.Errorf("Windows Custom Images are only supported if the Orchestrator Type is DCOS")
+		}
+	}
+
 	return nil
 }
 
@@ -449,21 +507,37 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 	const minKubeletRetries = 4
 	// k8s versions that have cloudprovider backoff enabled
 	var backoffEnabledVersions = map[string]bool{
-		common.KubernetesVersion1Dot8Dot0:  true,
-		common.KubernetesVersion1Dot8Dot1:  true,
-		common.KubernetesVersion1Dot8Dot2:  true,
-		common.KubernetesVersion1Dot7Dot0:  true,
-		common.KubernetesVersion1Dot7Dot1:  true,
-		common.KubernetesVersion1Dot7Dot2:  true,
-		common.KubernetesVersion1Dot7Dot4:  true,
-		common.KubernetesVersion1Dot7Dot5:  true,
-		common.KubernetesVersion1Dot7Dot7:  true,
-		common.KubernetesVersion1Dot7Dot9:  true,
-		common.KubernetesVersion1Dot7Dot10: true,
-		common.KubernetesVersion1Dot6Dot6:  true,
-		common.KubernetesVersion1Dot6Dot9:  true,
-		common.KubernetesVersion1Dot6Dot11: true,
-		common.KubernetesVersion1Dot6Dot12: true,
+		common.KubernetesVersion1Dot10Dot0Beta4: true,
+		common.KubernetesVersion1Dot10Dot0Beta2: true,
+		common.KubernetesVersion1Dot9Dot0:       true,
+		common.KubernetesVersion1Dot9Dot1:       true,
+		common.KubernetesVersion1Dot9Dot2:       true,
+		common.KubernetesVersion1Dot9Dot3:       true,
+		common.KubernetesVersion1Dot9Dot4:       true,
+		common.KubernetesVersion1Dot8Dot0:       true,
+		common.KubernetesVersion1Dot8Dot1:       true,
+		common.KubernetesVersion1Dot8Dot2:       true,
+		common.KubernetesVersion1Dot8Dot4:       true,
+		common.KubernetesVersion1Dot8Dot6:       true,
+		common.KubernetesVersion1Dot8Dot7:       true,
+		common.KubernetesVersion1Dot8Dot8:       true,
+		common.KubernetesVersion1Dot8Dot9:       true,
+		common.KubernetesVersion1Dot7Dot0:       true,
+		common.KubernetesVersion1Dot7Dot1:       true,
+		common.KubernetesVersion1Dot7Dot2:       true,
+		common.KubernetesVersion1Dot7Dot4:       true,
+		common.KubernetesVersion1Dot7Dot5:       true,
+		common.KubernetesVersion1Dot7Dot7:       true,
+		common.KubernetesVersion1Dot7Dot9:       true,
+		common.KubernetesVersion1Dot7Dot10:      true,
+		common.KubernetesVersion1Dot7Dot12:      true,
+		common.KubernetesVersion1Dot7Dot13:      true,
+		common.KubernetesVersion1Dot7Dot14:      true,
+		common.KubernetesVersion1Dot6Dot6:       true,
+		common.KubernetesVersion1Dot6Dot9:       true,
+		common.KubernetesVersion1Dot6Dot11:      true,
+		common.KubernetesVersion1Dot6Dot12:      true,
+		common.KubernetesVersion1Dot6Dot13:      true,
 	}
 	// k8s versions that have cloudprovider rate limiting enabled (currently identical with backoff enabled versions)
 	ratelimitEnabledVersions := backoffEnabledVersions
@@ -474,9 +548,11 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.ClusterSubnet '%s' is an invalid subnet", a.ClusterSubnet)
 		}
 
-		ones, bits := subnet.Mask.Size()
-		if bits-ones <= 8 {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.ClusterSubnet '%s' must reserve at least 9 bits for nodes", a.ClusterSubnet)
+		if a.NetworkPolicy == "azure" {
+			ones, bits := subnet.Mask.Size()
+			if bits-ones <= 8 {
+				return fmt.Errorf("OrchestratorProfile.KubernetesConfig.ClusterSubnet '%s' must reserve at least 9 bits for nodes", a.ClusterSubnet)
+			}
 		}
 	}
 
@@ -487,58 +563,58 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		}
 	}
 
-	if a.NonMasqueradeCidr != "" {
-		if _, _, err := net.ParseCIDR(a.NonMasqueradeCidr); err != nil {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.NonMasqueradeCidr '%s' is an invalid CIDR string", a.NonMasqueradeCidr)
-		}
-	}
-
 	if a.MaxPods != 0 {
 		if a.MaxPods < KubernetesMinMaxPods {
 			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.MaxPods '%v' must be at least %v", a.MaxPods, KubernetesMinMaxPods)
 		}
 	}
 
-	if a.NodeStatusUpdateFrequency != "" {
-		_, err := time.ParseDuration(a.NodeStatusUpdateFrequency)
-		if err != nil {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.NodeStatusUpdateFrequency '%s' is not a valid duration", a.NodeStatusUpdateFrequency)
-		}
-		if a.CtrlMgrNodeMonitorGracePeriod == "" {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.NodeStatusUpdateFrequency was set to '%s' but OrchestratorProfile.KubernetesConfig.CtrlMgrNodeMonitorGracePeriod was not set", a.NodeStatusUpdateFrequency)
-		}
-	}
-
-	if a.CtrlMgrNodeMonitorGracePeriod != "" {
-		_, err := time.ParseDuration(a.CtrlMgrNodeMonitorGracePeriod)
-		if err != nil {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.CtrlMgrNodeMonitorGracePeriod '%s' is not a valid duration", a.CtrlMgrNodeMonitorGracePeriod)
-		}
-		if a.NodeStatusUpdateFrequency == "" {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.CtrlMgrNodeMonitorGracePeriod was set to '%s' but OrchestratorProfile.KubernetesConfig.NodeStatusUpdateFrequency was not set", a.NodeStatusUpdateFrequency)
+	if a.KubeletConfig != nil {
+		if _, ok := a.KubeletConfig["--node-status-update-frequency"]; ok {
+			val := a.KubeletConfig["--node-status-update-frequency"]
+			_, err := time.ParseDuration(val)
+			if err != nil {
+				return fmt.Errorf("--node-status-update-frequency '%s' is not a valid duration", val)
+			}
 		}
 	}
 
-	if a.NodeStatusUpdateFrequency != "" && a.CtrlMgrNodeMonitorGracePeriod != "" {
-		nodeStatusUpdateFrequency, _ := time.ParseDuration(a.NodeStatusUpdateFrequency)
-		ctrlMgrNodeMonitorGracePeriod, _ := time.ParseDuration(a.CtrlMgrNodeMonitorGracePeriod)
-		kubeletRetries := ctrlMgrNodeMonitorGracePeriod.Seconds() / nodeStatusUpdateFrequency.Seconds()
-		if kubeletRetries < minKubeletRetries {
-			return fmt.Errorf("acs-engine requires that ctrlMgrNodeMonitorGracePeriod(%f)s be larger than nodeStatusUpdateFrequency(%f)s by at least a factor of %d; ", ctrlMgrNodeMonitorGracePeriod.Seconds(), nodeStatusUpdateFrequency.Seconds(), minKubeletRetries)
+	if _, ok := a.ControllerManagerConfig["--node-monitor-grace-period"]; ok {
+		_, err := time.ParseDuration(a.ControllerManagerConfig["--node-monitor-grace-period"])
+		if err != nil {
+			return fmt.Errorf("--node-monitor-grace-period '%s' is not a valid duration", a.ControllerManagerConfig["--node-monitor-grace-period"])
 		}
 	}
 
-	if a.CtrlMgrPodEvictionTimeout != "" {
-		_, err := time.ParseDuration(a.CtrlMgrPodEvictionTimeout)
-		if err != nil {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.CtrlMgrPodEvictionTimeout '%s' is not a valid duration", a.CtrlMgrPodEvictionTimeout)
+	if a.KubeletConfig != nil {
+		if _, ok := a.KubeletConfig["--node-status-update-frequency"]; ok {
+			if _, ok := a.ControllerManagerConfig["--node-monitor-grace-period"]; ok {
+				nodeStatusUpdateFrequency, _ := time.ParseDuration(a.KubeletConfig["--node-status-update-frequency"])
+				ctrlMgrNodeMonitorGracePeriod, _ := time.ParseDuration(a.ControllerManagerConfig["--node-monitor-grace-period"])
+				kubeletRetries := ctrlMgrNodeMonitorGracePeriod.Seconds() / nodeStatusUpdateFrequency.Seconds()
+				if kubeletRetries < minKubeletRetries {
+					return fmt.Errorf("acs-engine requires that --node-monitor-grace-period(%f)s be larger than nodeStatusUpdateFrequency(%f)s by at least a factor of %d; ", ctrlMgrNodeMonitorGracePeriod.Seconds(), nodeStatusUpdateFrequency.Seconds(), minKubeletRetries)
+				}
+			}
+		}
+		if _, ok := a.KubeletConfig["--non-masquerade-cidr"]; ok {
+			if _, _, err := net.ParseCIDR(a.KubeletConfig["--non-masquerade-cidr"]); err != nil {
+				return fmt.Errorf("--non-masquerade-cidr kubelet config '%s' is an invalid CIDR string", a.KubeletConfig["--non-masquerade-cidr"])
+			}
 		}
 	}
 
-	if a.CtrlMgrRouteReconciliationPeriod != "" {
-		_, err := time.ParseDuration(a.CtrlMgrRouteReconciliationPeriod)
+	if _, ok := a.ControllerManagerConfig["--pod-eviction-timeout"]; ok {
+		_, err := time.ParseDuration(a.ControllerManagerConfig["--pod-eviction-timeout"])
 		if err != nil {
-			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.CtrlMgrRouteReconciliationPeriod '%s' is not a valid duration", a.CtrlMgrRouteReconciliationPeriod)
+			return fmt.Errorf("--pod-eviction-timeout '%s' is not a valid duration", a.ControllerManagerConfig["--pod-eviction-timeout"])
+		}
+	}
+
+	if _, ok := a.ControllerManagerConfig["--route-reconciliation-period"]; ok {
+		_, err := time.ParseDuration(a.ControllerManagerConfig["--route-reconciliation-period"])
+		if err != nil {
+			return fmt.Errorf("--route-reconciliation-period '%s' is not a valid duration", a.ControllerManagerConfig["--route-reconciliation-period"])
 		}
 	}
 
@@ -595,6 +671,30 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		return e
 	}
 
+	var ccmEnabledVersions = map[string]bool{
+		common.KubernetesVersion1Dot8Dot0:       true,
+		common.KubernetesVersion1Dot8Dot1:       true,
+		common.KubernetesVersion1Dot8Dot2:       true,
+		common.KubernetesVersion1Dot8Dot4:       true,
+		common.KubernetesVersion1Dot8Dot6:       true,
+		common.KubernetesVersion1Dot8Dot7:       true,
+		common.KubernetesVersion1Dot8Dot8:       true,
+		common.KubernetesVersion1Dot8Dot9:       true,
+		common.KubernetesVersion1Dot9Dot0:       true,
+		common.KubernetesVersion1Dot9Dot1:       true,
+		common.KubernetesVersion1Dot9Dot2:       true,
+		common.KubernetesVersion1Dot9Dot3:       true,
+		common.KubernetesVersion1Dot9Dot4:       true,
+		common.KubernetesVersion1Dot10Dot0Beta2: true,
+		common.KubernetesVersion1Dot10Dot0Beta4: true,
+	}
+
+	if a.UseCloudControllerManager != nil && *a.UseCloudControllerManager || a.CustomCcmImage != "" {
+		if !ccmEnabledVersions[k8sVersion] {
+			return fmt.Errorf("OrchestratorProfile.KubernetesConfig.UseCloudControllerManager and OrchestratorProfile.KubernetesConfig.CustomCcmImage not available in kubernetes version %s", k8sVersion)
+		}
+	}
+
 	return nil
 }
 
@@ -623,8 +723,40 @@ func (a *Properties) validateNetworkPolicy() error {
 	}
 
 	// Temporary safety check, to be removed when Windows support is added.
-	if (networkPolicy == "calico" || networkPolicy == "azure") && a.HasWindows() {
+	if (networkPolicy == "calico" || networkPolicy == "cilium") && a.HasWindows() {
 		return fmt.Errorf("networkPolicy '%s' is not supporting windows agents", networkPolicy)
+	}
+
+	return nil
+}
+
+func (a *Properties) validateContainerRuntime() error {
+	var containerRuntime string
+
+	switch a.OrchestratorProfile.OrchestratorType {
+	case Kubernetes:
+		if a.OrchestratorProfile.KubernetesConfig != nil {
+			containerRuntime = a.OrchestratorProfile.KubernetesConfig.ContainerRuntime
+		}
+	default:
+		return nil
+	}
+
+	// Check ContainerRuntime has a valid value.
+	valid := false
+	for _, runtime := range ContainerRuntimeValues {
+		if containerRuntime == runtime {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		return fmt.Errorf("unknown containerRuntime %q specified", containerRuntime)
+	}
+
+	// Make sure we don't use clear containers on windows.
+	if containerRuntime == "clear-containers" && a.HasWindows() {
+		return fmt.Errorf("containerRuntime %q is not supporting windows agents", containerRuntime)
 	}
 
 	return nil

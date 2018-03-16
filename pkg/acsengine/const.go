@@ -36,16 +36,32 @@ const (
 	// DefaultInternalLbStaticIPOffset specifies the offset of the internal LoadBalancer's IP
 	// address relative to the first consecutive Kubernetes static IP
 	DefaultInternalLbStaticIPOffset = 10
-	// DefaultNetworkPolicy is disabling network policy enforcement
-	DefaultNetworkPolicy = "none"
+	// NetworkPolicyNone is the string expression for no network policy
+	NetworkPolicyNone = "none"
+	// NetworkPolicyAzure is the string expression for Azure CNI network policy
+	NetworkPolicyAzure = "azure"
+	// NetworkPluginKubenet is the string expression for kubenet network plugin
+	NetworkPluginKubenet = "kubenet"
+	// DefaultNetworkPolicy defines the network policy to use by default
+	DefaultNetworkPolicy = NetworkPolicyNone
+	// DefaultNetworkPolicyWindows defines the network policy to use by default for clusters with Windows agent pools
+	DefaultNetworkPolicyWindows = NetworkPolicyNone
+	// DefaultContainerRuntime is docker
+	DefaultContainerRuntime = "docker"
 	// DefaultKubernetesNodeStatusUpdateFrequency is 10s, see --node-status-update-frequency at https://kubernetes.io/docs/admin/kubelet/
 	DefaultKubernetesNodeStatusUpdateFrequency = "10s"
+	// DefaultKubernetesHardEvictionThreshold is memory.available<100Mi,nodefs.available<10%,nodefs.inodesFree<5%, see --eviction-hard at https://kubernetes.io/docs/admin/kubelet/
+	DefaultKubernetesHardEvictionThreshold = "memory.available<100Mi,nodefs.available<10%,nodefs.inodesFree<5%"
 	// DefaultKubernetesCtrlMgrNodeMonitorGracePeriod is 40s, see --node-monitor-grace-period at https://kubernetes.io/docs/admin/kube-controller-manager/
 	DefaultKubernetesCtrlMgrNodeMonitorGracePeriod = "40s"
 	// DefaultKubernetesCtrlMgrPodEvictionTimeout is 5m0s, see --pod-eviction-timeout at https://kubernetes.io/docs/admin/kube-controller-manager/
 	DefaultKubernetesCtrlMgrPodEvictionTimeout = "5m0s"
 	// DefaultKubernetesCtrlMgrRouteReconciliationPeriod is 10s, see --route-reconciliation-period at https://kubernetes.io/docs/admin/kube-controller-manager/
 	DefaultKubernetesCtrlMgrRouteReconciliationPeriod = "10s"
+	// DefaultKubernetesCtrlMgrTerminatedPodGcThreshold is set to 5000, see --terminated-pod-gc-threshold at https://kubernetes.io/docs/admin/kube-controller-manager/ and https://github.com/kubernetes/kubernetes/issues/22680
+	DefaultKubernetesCtrlMgrTerminatedPodGcThreshold = "5000"
+	// DefaultKubernetesCtrlMgrUseSvcAccountCreds is "true", see --use-service-account-credentials at https://kubernetes.io/docs/admin/kube-controller-manager/
+	DefaultKubernetesCtrlMgrUseSvcAccountCreds = "false"
 	// DefaultKubernetesCloudProviderBackoff is false to disable cloudprovider backoff implementation for API calls
 	DefaultKubernetesCloudProviderBackoff = false
 	// DefaultKubernetesCloudProviderBackoffRetries is 6, takes effect if DefaultKubernetesCloudProviderBackoff is true
@@ -64,11 +80,14 @@ const (
 	DefaultKubernetesCloudProviderRateLimitBucket = 10
 	// DefaultTillerAddonName is the name of the tiller addon deployment
 	DefaultTillerAddonName = "tiller"
+	// DefaultTillerMaxHistory limits the maximum number of revisions saved per release. Use 0 for no limit.
+	DefaultTillerMaxHistory = 0
+	// DefaultACIConnectorAddonName is the name of the tiller addon deployment
+	DefaultACIConnectorAddonName = "aci-connector"
 	// DefaultDashboardAddonName is the name of the kubernetes-dashboard addon deployment
 	DefaultDashboardAddonName = "kubernetes-dashboard"
-	// DefaultTillerImage defines the Helm Tiller deployment version on Kubernetes Clusters
-	// TODO deprecate this usage, we should be favoring a more frequent upgrade cycle that pins fresh tiller versions to specific k8s versions
-	DefaultTillerImage = "tiller:v2.6.2"
+	// DefaultACIConnectorImage defines the ACI Connector deployment version on Kubernetes Clusters
+	DefaultACIConnectorImage = "virtual-kubelet:latest"
 	// DefaultKubernetesDNSServiceIP specifies the IP address that kube-dns
 	// listens on by default. must by in the default Service CIDR range.
 	DefaultKubernetesDNSServiceIP = "10.0.0.10"
@@ -83,8 +102,28 @@ const (
 	DefaultGeneratorCode = "acsengine"
 	// DefaultOrchestratorName specifies the 3 character orchestrator code of the cluster template and affects resource naming.
 	DefaultOrchestratorName = "k8s"
+	// DefaultEtcdVersion specifies the default etcd version to install
+	DefaultEtcdVersion = "3.2.16"
 	// DefaultEtcdDiskSize specifies the default size for Kubernetes master etcd disk volumes in GB
 	DefaultEtcdDiskSize = "128"
+	// DefaultReschedulerAddonName is the name of the rescheduler addon deployment
+	DefaultReschedulerAddonName = "rescheduler"
+	// DefaultMetricsServerAddonName is the name of the kubernetes Metrics server addon deployment
+	DefaultMetricsServerAddonName = "metrics-server"
+	// DefaultKubernetesKubeletMaxPods is the max pods per kubelet
+	DefaultKubernetesKubeletMaxPods = 110
+	// DefaultMasterEtcdServerPort is the default etcd server port for Kubernetes master nodes
+	DefaultMasterEtcdServerPort = 2380
+	// DefaultMasterEtcdClientPort is the default etcd client port for Kubernetes master nodes
+	DefaultMasterEtcdClientPort = 2379
+	// DefaultKubeletEventQPS is 0, see --event-qps at https://kubernetes.io/docs/reference/generated/kubelet/
+	DefaultKubeletEventQPS = "0"
+	// DefaultKubeletCadvisorPort is 0, see --cadvisor-port at https://kubernetes.io/docs/reference/generated/kubelet/
+	DefaultKubeletCadvisorPort = "0"
+	// DefaultJumpboxDiskSize specifies the default size for private cluster jumpbox OS disk in GB
+	DefaultJumpboxDiskSize = 30
+	// DefaultJumpboxUsername specifies the default admin username for the private cluster jumpbox
+	DefaultJumpboxUsername = "azureuser"
 )
 
 const (

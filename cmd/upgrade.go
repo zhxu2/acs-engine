@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	"github.com/Azure/acs-engine/pkg/acsengine"
 	"github.com/Azure/acs-engine/pkg/api"
@@ -34,12 +35,14 @@ type upgradeCmd struct {
 	containerService    *api.ContainerService
 	apiVersion          string
 	location            string
+	timeoutInMinutes    int
 
 	// derived
 	client              armhelpers.ACSEngineClient
 	locale              *gotext.Locale
 	nameSuffix          string
 	agentPoolsToUpgrade []string
+	timeout             *time.Duration
 }
 
 // NewUpgradeCmd run a command to upgrade a Kubernetes cluster
@@ -56,10 +59,11 @@ func newUpgradeCmd() *cobra.Command {
 	}
 
 	f := upgradeCmd.Flags()
-	f.StringVar(&uc.location, "location", "", "location the cluster is deployed in")
-	f.StringVar(&uc.resourceGroupName, "resource-group", "", "the resource group where the cluster is deployed")
+	f.StringVarP(&uc.location, "location", "l", "", "location the cluster is deployed in")
+	f.StringVarP(&uc.resourceGroupName, "resource-group", "g", "", "the resource group where the cluster is deployed")
 	f.StringVar(&uc.deploymentDirectory, "deployment-dir", "", "the location of the output from `generate`")
 	f.StringVar(&uc.upgradeVersion, "upgrade-version", "", "desired kubernetes version")
+	f.IntVar(&uc.timeoutInMinutes, "vm-timeout", -1, "how long to wait for each vm to be upgraded in minutes")
 	addAuthFlags(&uc.authArgs, f)
 
 	return upgradeCmd
@@ -83,6 +87,11 @@ func (uc *upgradeCmd) validate(cmd *cobra.Command, args []string) {
 	if uc.location == "" {
 		cmd.Usage()
 		log.Fatal("--location must be specified")
+	}
+
+	if uc.timeoutInMinutes != -1 {
+		timeout := time.Duration(uc.timeoutInMinutes) * time.Minute
+		uc.timeout = &timeout
 	}
 
 	// TODO(colemick): add in the cmd annotation to help enable autocompletion
@@ -120,6 +129,12 @@ func (uc *upgradeCmd) validate(cmd *cobra.Command, args []string) {
 	uc.containerService, uc.apiVersion, err = apiloader.LoadContainerServiceFromFile(apiModelPath, true, true, nil)
 	if err != nil {
 		log.Fatalf("error parsing the api model: %s", err.Error())
+	}
+
+	if uc.containerService.Location == "" {
+		uc.containerService.Location = uc.location
+	} else if uc.containerService.Location != uc.location {
+		log.Fatalf("--location does not match api model location")
 	}
 
 	// get available upgrades for container service
@@ -182,18 +197,36 @@ func (uc *upgradeCmd) run(cmd *cobra.Command, args []string) error {
 		Translator: &i18n.Translator{
 			Locale: uc.locale,
 		},
-		Logger: log.NewEntry(log.New()),
-		Client: uc.client,
+		Logger:      log.NewEntry(log.New()),
+		Client:      uc.client,
+		StepTimeout: uc.timeout,
 	}
+
 	kubeConfig, err := acsengine.GenerateKubeConfig(uc.containerService.Properties, uc.location)
 	if err != nil {
-		log.Fatalf("failed to generate kube config") // TODO: cleanup
+		log.Fatalf("failed to generate kube config: %v", err) // TODO: cleanup
 	}
 
 	if err = upgradeCluster.UpgradeCluster(uc.authArgs.SubscriptionID, kubeConfig, uc.resourceGroupName,
 		uc.containerService, uc.nameSuffix, uc.agentPoolsToUpgrade); err != nil {
-		log.Fatalf("Error upgrading cluster: %s \n", err.Error())
+		log.Fatalf("Error upgrading cluster: %v\n", err)
 	}
 
-	return nil
+	apiloader := &api.Apiloader{
+		Translator: &i18n.Translator{
+			Locale: uc.locale,
+		},
+	}
+	b, err := apiloader.SerializeContainerService(uc.containerService, uc.apiVersion)
+	if err != nil {
+		return err
+	}
+
+	f := acsengine.FileSaver{
+		Translator: &i18n.Translator{
+			Locale: uc.locale,
+		},
+	}
+
+	return f.SaveFile(uc.deploymentDirectory, "apimodel.json", b)
 }

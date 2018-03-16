@@ -3,13 +3,15 @@ package kubernetesupgrade
 import (
 	"fmt"
 	"strconv"
-
 	"strings"
+	"time"
 
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
+	"github.com/Azure/acs-engine/pkg/armhelpers/utils"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Masterminds/semver"
 	uuid "github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -43,7 +45,8 @@ type UpgradeCluster struct {
 	Translator *i18n.Translator
 	Logger     *logrus.Entry
 	ClusterTopology
-	Client armhelpers.ACSEngineClient
+	Client      armhelpers.ACSEngineClient
+	StepTimeout *time.Duration
 }
 
 // MasterVMNamePrefix is the prefix for all master VM names for Kubernetes clusters
@@ -77,20 +80,30 @@ func (uc *UpgradeCluster) UpgradeCluster(subscriptionID uuid.UUID, kubeConfig, r
 	upgradeVersion := uc.DataModel.Properties.OrchestratorProfile.OrchestratorVersion
 	uc.Logger.Infof("Upgrading to Kubernetes version %s\n", upgradeVersion)
 	switch {
-	case strings.HasPrefix(upgradeVersion, "1.6"):
+	case strings.HasPrefix(upgradeVersion, "1.6."):
 		upgrader16 := &Kubernetes16upgrader{}
-		upgrader16.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig)
+		upgrader16.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig, uc.StepTimeout)
 		upgrader = upgrader16
 
-	case strings.HasPrefix(upgradeVersion, "1.7"):
+	case strings.HasPrefix(upgradeVersion, "1.7."):
 		upgrader17 := &Kubernetes17upgrader{}
-		upgrader17.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig)
+		upgrader17.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig, uc.StepTimeout)
 		upgrader = upgrader17
 
-	case strings.HasPrefix(upgradeVersion, "1.8"):
+	case strings.HasPrefix(upgradeVersion, "1.8."):
 		upgrader18 := &Kubernetes18upgrader{}
-		upgrader18.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig)
+		upgrader18.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig, uc.StepTimeout)
 		upgrader = upgrader18
+
+	case strings.HasPrefix(upgradeVersion, "1.9."):
+		upgrader19 := &Upgrader{}
+		upgrader19.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig, uc.StepTimeout)
+		upgrader = upgrader19
+
+	case strings.HasPrefix(upgradeVersion, "1.10."):
+		upgrader110 := &Upgrader{}
+		upgrader110.Init(uc.Translator, uc.Logger, uc.ClusterTopology, uc.Client, kubeConfig, uc.StepTimeout)
+		upgrader = upgrader110
 
 	default:
 		return uc.Translator.Errorf("Upgrade to Kubernetes version %s is not supported", upgradeVersion)
@@ -161,14 +174,13 @@ func (uc *UpgradeCluster) upgradable(vmOrchestratorTypeAndVersion string) error 
 	if len(arr) != 2 {
 		return fmt.Errorf("Unsupported orchestrator tag format %s", vmOrchestratorTypeAndVersion)
 	}
-	currentVer := arr[1]
-	arr = strings.Split(currentVer, ".")
-	if len(arr) != 3 {
-		return fmt.Errorf("Unsupported orchestrator version format %s", currentVer)
+	currentVer, err := semver.NewVersion(arr[1])
+	if err != nil {
+		return fmt.Errorf("Unsupported orchestrator version format %s", currentVer.String())
 	}
 	csOrch := &api.OrchestratorProfile{
 		OrchestratorType:    api.Kubernetes,
-		OrchestratorVersion: currentVer,
+		OrchestratorVersion: currentVer.String(),
 	}
 	orch, err := api.GetOrchestratorVersionProfile(csOrch)
 	if err != nil {
@@ -179,7 +191,7 @@ func (uc *UpgradeCluster) upgradable(vmOrchestratorTypeAndVersion string) error 
 			return nil
 		}
 	}
-	return fmt.Errorf("%s in non-upgradable to %s", vmOrchestratorTypeAndVersion, uc.DataModel.Properties.OrchestratorProfile.OrchestratorVersion)
+	return fmt.Errorf("%s cannot be upgraded to %s", vmOrchestratorTypeAndVersion, uc.DataModel.Properties.OrchestratorProfile.OrchestratorVersion)
 }
 
 func (uc *UpgradeCluster) addVMToAgentPool(vm compute.VirtualMachine, isUpgradableVM bool) error {
@@ -197,13 +209,13 @@ func (uc *UpgradeCluster) addVMToAgentPool(vm compute.VirtualMachine, isUpgradab
 	if vmPoolName == "" {
 		uc.Logger.Infof("VM: %s does not contain `poolName` tag, skipping.\n", *vm.Name)
 		return nil
-	} else if uc.AgentPoolsToUpgrade[vmPoolName] == false {
+	} else if !uc.AgentPoolsToUpgrade[vmPoolName] {
 		uc.Logger.Infof("Skipping upgrade of VM: %s in pool: %s.\n", *vm.Name, vmPoolName)
 		return nil
 	}
 
 	if vm.StorageProfile.OsDisk.OsType == compute.Linux {
-		poolIdentifier, poolPrefix, _, err = armhelpers.K8sLinuxVMNameParts(*vm.Name)
+		poolIdentifier, poolPrefix, _, err = utils.K8sLinuxVMNameParts(*vm.Name)
 		if err != nil {
 			uc.Logger.Errorf(err.Error())
 			return err
@@ -215,7 +227,7 @@ func (uc *UpgradeCluster) addVMToAgentPool(vm compute.VirtualMachine, isUpgradab
 			return nil
 		}
 	} else if vm.StorageProfile.OsDisk.OsType == compute.Windows {
-		poolPrefix, acsStr, poolIndex, _, err := armhelpers.WindowsVMNameParts(*vm.Name)
+		poolPrefix, acsStr, poolIndex, _, err := utils.WindowsVMNameParts(*vm.Name)
 		if err != nil {
 			uc.Logger.Errorf(err.Error())
 			return err

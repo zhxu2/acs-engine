@@ -24,6 +24,7 @@ const (
 const (
 	Ubuntu Distro = "ubuntu"
 	RHEL   Distro = "rhel"
+	CoreOS Distro = "coreos"
 )
 
 const (
@@ -84,6 +85,30 @@ const publicAgentPoolSuffix = "-public"
 const (
 	// DefaultTillerAddonEnabled determines the acs-engine provided default for enabling tiller addon
 	DefaultTillerAddonEnabled = true
+	// DefaultACIConnectorAddonEnabled determines the acs-engine provided default for enabling aci connector addon
+	DefaultACIConnectorAddonEnabled = false
 	// DefaultDashboardAddonEnabled determines the acs-engine provided default for enabling kubernetes-dashboard addon
 	DefaultDashboardAddonEnabled = true
+	// DefaultReschedulerAddonEnabled determines the acs-engine provided default for enabling kubernetes-rescheduler addon
+	DefaultReschedulerAddonEnabled = false
+	// DefaultRBACEnabled determines the acs-engine provided default for enabling kubernetes RBAC
+	DefaultRBACEnabled = true
+	// DefaultUseInstanceMetadata determines the acs-engine provided default for enabling Azure cloudprovider instance metadata service
+	DefaultUseInstanceMetadata = true
+	// DefaultSecureKubeletEnabled determines the acs-engine provided default for securing kubelet communications
+	DefaultSecureKubeletEnabled = true
+	// DefaultMetricsServerAddonEnabled determines the acs-engine provided default for enabling kubernetes metrics-server addon
+	DefaultMetricsServerAddonEnabled = false
+	// DefaultTillerAddonName is the name of the tiller addon deployment
+	DefaultTillerAddonName = "tiller"
+	// DefaultACIConnectorAddonName is the name of the tiller addon deployment
+	DefaultACIConnectorAddonName = "aci-connector"
+	// DefaultDashboardAddonName is the name of the kubernetes-dashboard addon deployment
+	DefaultDashboardAddonName = "kubernetes-dashboard"
+	// DefaultReschedulerAddonName is the name of the rescheduler addon deployment
+	DefaultReschedulerAddonName = "rescheduler"
+	// DefaultMetricsServerAddonName is the name of the kubernetes metrics server addon deployment
+	DefaultMetricsServerAddonName = "metrics-server"
+	// DefaultPrivateClusterEnabled determines the acs-engine provided default for enabling kubernetes Private Cluster
+	DefaultPrivateClusterEnabled = false
 )

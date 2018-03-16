@@ -4,7 +4,7 @@ By doing this, you will be able to control the properties of the virtual network
 
 *Note: This article describes the procedure with Docker Swarm but it will work in the exact same way with the all the orchestrators available with ACS Engine: Docker Swarm, Kubernetes and DC/OS.*
 
-*For Kubernetes, the cluster should be deployed in the same resource group than the virtual network and the service principal you use for the cluster needs permissions on the VNET resource's group too*
+*For Kubernetes, the cluster should be deployed in the same resource group as the virtual network and the service principal you use for the cluster needs permissions on the VNET resource's group too. Custom VNET for Kubernetes Windows cluster has a [known issue](https://github.com/Azure/acs-engine/issues/1767).*
 
 ## Prerequisites
 You can run this walkthrough on OS X, Windows, or Linux.
@@ -174,7 +174,7 @@ For Kubernetes clusters, we need to update the VNET to attach to the route table
 
 ```
 #!/bin/bash
-rt=$(az network route-table list -g acs-custom-vnet | jq -r '.[].id')
+rt=$(az network route-table list -g acs-custom-vnet -o json | jq -r '.[].id')
 az network vnet subnet update -n KubernetesSubnet -g acs-custom-vnet --vnet-name KubernetesCustomVNET --route-table $rt
 ```
 

@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/pkg/acsengine"
+	"github.com/Azure/acs-engine/pkg/acsengine/transform"
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
+	"github.com/Azure/acs-engine/pkg/armhelpers/utils"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/Azure/acs-engine/pkg/operations"
 	"github.com/leonelquinteros/gotext"
@@ -66,8 +68,8 @@ func newScaleCmd() *cobra.Command {
 	}
 
 	f := scaleCmd.Flags()
-	f.StringVar(&sc.location, "location", "", "location the cluster is deployed in")
-	f.StringVar(&sc.resourceGroupName, "resource-group", "", "the resource group where the cluster is deployed")
+	f.StringVarP(&sc.location, "location", "l", "", "location the cluster is deployed in")
+	f.StringVarP(&sc.resourceGroupName, "resource-group", "g", "", "the resource group where the cluster is deployed")
 	f.StringVar(&sc.deploymentDirectory, "deployment-dir", "", "the location of the output from `generate`")
 	f.IntVar(&sc.newDesiredAgentCount, "new-node-count", 0, "desired number of nodes")
 	f.BoolVar(&sc.classicMode, "classic-mode", false, "enable classic parameters and outputs")
@@ -135,6 +137,12 @@ func (sc *scaleCmd) validate(cmd *cobra.Command, args []string) {
 		log.Fatalf("error parsing the api model: %s", err.Error())
 	}
 
+	if sc.containerService.Location == "" {
+		sc.containerService.Location = sc.location
+	} else if sc.containerService.Location != sc.location {
+		log.Fatalf("--location does not match api model location")
+	}
+
 	if sc.agentPoolToScale == "" {
 		agentPoolCount := len(sc.containerService.Properties.AgentPoolProfiles)
 		if agentPoolCount > 1 {
@@ -186,10 +194,12 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 		vms, err := sc.client.ListVirtualMachines(sc.resourceGroupName)
 		if err != nil {
 			log.Fatalln("failed to get vms in the resource group. Error: %s", err.Error())
+		} else if len(*vms.Value) < 1 {
+			log.Fatalln("The provided resource group does not contain any vms.")
 		}
 		for _, vm := range *vms.Value {
 
-			poolName, nameSuffix, index, err := armhelpers.K8sLinuxVMNameParts(*vm.Name)
+			poolName, nameSuffix, index, err := utils.K8sLinuxVMNameParts(*vm.Name)
 			if err != nil || !strings.EqualFold(poolName, sc.agentPoolToScale) || !strings.EqualFold(nameSuffix, sc.nameSuffix) {
 				continue
 			}
@@ -249,7 +259,7 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 			log.Fatalln("failed to get vmss list in the resource group. Error: %s", err.Error())
 		}
 		for _, vmss := range *vmssList.Value {
-			poolName, nameSuffix, err := armhelpers.VmssNameParts(*vmss.Name)
+			poolName, nameSuffix, err := utils.VmssNameParts(*vmss.Name)
 			if err != nil || !strings.EqualFold(poolName, sc.agentPoolToScale) || !strings.EqualFold(nameSuffix, sc.nameSuffix) {
 				continue
 			}
@@ -270,13 +280,13 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 
 	sc.containerService.Properties.AgentPoolProfiles = []*api.AgentPoolProfile{sc.agentPool}
 
-	template, parameters, _, err := templateGenerator.GenerateTemplate(sc.containerService, acsengine.DefaultGeneratorCode)
+	template, parameters, _, err := templateGenerator.GenerateTemplate(sc.containerService, acsengine.DefaultGeneratorCode, false)
 	if err != nil {
 		log.Fatalf("error generating template %s: %s", sc.apiModelPath, err.Error())
 		os.Exit(1)
 	}
 
-	if template, err = acsengine.PrettyPrintArmTemplate(template); err != nil {
+	if template, err = transform.PrettyPrintArmTemplate(template); err != nil {
 		log.Fatalf("error pretty printing template: %s \n", err.Error())
 	}
 
@@ -293,7 +303,7 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 		log.Fatalln(err)
 	}
 
-	transformer := acsengine.Transformer{Translator: ctx.Translator}
+	transformer := transform.Transformer{Translator: ctx.Translator}
 	// Our templates generate a range of nodes based on a count and offset, it is possible for there to be holes in the template
 	// So we need to set the count in the template to get enough nodes for the range, if there are holes that number will be larger than the desired count
 	countForTemplate := sc.newDesiredAgentCount
@@ -312,7 +322,6 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 		if sc.agentPool.IsAvailabilitySets() {
 			addValue(parametersJSON, fmt.Sprintf("%sOffset", sc.agentPool.Name), highestUsedIndex+1)
 		}
-		break
 	case api.Swarm:
 	case api.SwarmMode:
 	case api.DCOS:
@@ -343,12 +352,15 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 	}
 	var apiVersion string
 	sc.containerService, apiVersion, err = apiloader.LoadContainerServiceFromFile(sc.apiModelPath, false, true, nil)
+	if err != nil {
+		return err
+	}
 	sc.containerService.Properties.AgentPoolProfiles[sc.agentPoolIndex].Count = sc.newDesiredAgentCount
 
-	b, e := apiloader.SerializeContainerService(sc.containerService, apiVersion)
+	b, err := apiloader.SerializeContainerService(sc.containerService, apiVersion)
 
-	if e != nil {
-		return e
+	if err != nil {
+		return err
 	}
 
 	f := acsengine.FileSaver{
@@ -357,11 +369,7 @@ func (sc *scaleCmd) run(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	if e = f.SaveFile(sc.deploymentDirectory, "apimodel.json", b); e != nil {
-		return e
-	}
-
-	return nil
+	return f.SaveFile(sc.deploymentDirectory, "apimodel.json", b)
 }
 
 type paramsMap map[string]interface{}
@@ -375,9 +383,8 @@ func addValue(m paramsMap, k string, v interface{}) {
 func (sc *scaleCmd) drainNodes(vmsToDelete []string) error {
 	kubeConfig, err := acsengine.GenerateKubeConfig(sc.containerService.Properties, sc.location)
 	if err != nil {
-		log.Fatalf("failed to generate kube config") // TODO: cleanup
+		log.Fatalf("failed to generate kube config: %v", err) // TODO: cleanup
 	}
-	var errorMessage string
 	masterURL := sc.masterFQDN
 	if !strings.HasPrefix(masterURL, "https://") {
 		masterURL = fmt.Sprintf("https://%s", masterURL)
@@ -387,11 +394,11 @@ func (sc *scaleCmd) drainNodes(vmsToDelete []string) error {
 	defer close(errChan)
 	for _, vmName := range vmsToDelete {
 		go func(vmName string) {
-			e := operations.SafelyDrainNode(sc.client, sc.logger,
+			err = operations.SafelyDrainNode(sc.client, sc.logger,
 				masterURL, kubeConfig, vmName, time.Duration(60)*time.Minute)
-			if e != nil {
-				log.Errorf("Failed to drain node %s, got error %s", vmName, e.Error())
-				errChan <- &operations.VMScalingErrorDetails{Error: e, Name: vmName}
+			if err != nil {
+				log.Errorf("Failed to drain node %s, got error %v", vmName, err)
+				errChan <- &operations.VMScalingErrorDetails{Error: err, Name: vmName}
 				return
 			}
 			errChan <- nil
@@ -401,9 +408,7 @@ func (sc *scaleCmd) drainNodes(vmsToDelete []string) error {
 	for i := 0; i < numVmsToDrain; i++ {
 		errDetails := <-errChan
 		if errDetails != nil {
-			error := fmt.Sprintf("Node '%s' failed to drain with error: '%s'", errDetails.Name, errDetails.Error.Error())
-			errorMessage = errorMessage + error
-			return fmt.Errorf(error)
+			return fmt.Errorf("Node %q failed to drain with error: %v", errDetails.Name, errDetails.Error)
 		}
 	}
 

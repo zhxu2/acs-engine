@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"time"
 
+	"k8s.io/client-go/pkg/api/v1/node"
+
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
 	"github.com/Azure/acs-engine/pkg/i18n"
@@ -24,17 +26,16 @@ type UpgradeMasterNode struct {
 	UpgradeContainerService *api.ContainerService
 	ResourceGroup           string
 	Client                  armhelpers.ACSEngineClient
+	kubeConfig              string
+	timeout                 time.Duration
 }
 
 // DeleteNode takes state/resources of the master/agent node from ListNodeResources
 // backs up/preserves state as needed by a specific version of Kubernetes and then deletes
-// the node
-func (kmn *UpgradeMasterNode) DeleteNode(vmName *string) error {
-	if err := operations.CleanDeleteVirtualMachine(kmn.Client, kmn.logger, kmn.ResourceGroup, *vmName); err != nil {
-		return err
-	}
-
-	return nil
+// the node.
+// The 'drain' flag is not used for deleting master nodes.
+func (kmn *UpgradeMasterNode) DeleteNode(vmName *string, drain bool) error {
+	return operations.CleanDeleteVirtualMachine(kmn.Client, kmn.logger, kmn.ResourceGroup, *vmName)
 }
 
 // CreateNode creates a new master/agent node with the targeted version of Kubernetes
@@ -42,11 +43,11 @@ func (kmn *UpgradeMasterNode) CreateNode(poolName string, masterNo int) error {
 	templateVariables := kmn.TemplateMap["variables"].(map[string]interface{})
 
 	templateVariables["masterOffset"] = masterNo
-	masterOffsetVar, _ := templateVariables["masterOffset"]
+	masterOffsetVar := templateVariables["masterOffset"]
 	kmn.logger.Infof("Master offset: %v\n", masterOffsetVar)
 
 	templateVariables["masterCount"] = masterNo + 1
-	masterOffset, _ := templateVariables["masterCount"]
+	masterOffset := templateVariables["masterCount"]
 	kmn.logger.Infof("Master pool set count to: %v temporarily during upgrade...\n", masterOffset)
 
 	// Debug function - keep commented out
@@ -62,15 +63,52 @@ func (kmn *UpgradeMasterNode) CreateNode(poolName string, masterNo int) error {
 		kmn.TemplateMap,
 		kmn.ParametersMap,
 		nil)
+	return err
+}
 
+// Validate will verify the that master node has been upgraded as expected.
+func (kmn *UpgradeMasterNode) Validate(vmName *string) error {
+	if vmName == nil || *vmName == "" {
+		kmn.logger.Warningf("VM name was empty. Skipping node condition check")
+		return nil
+	}
+
+	if kmn.UpgradeContainerService.Properties.MasterProfile == nil {
+		kmn.logger.Warningf("Master profile was empty. Skipping node condition check")
+		return nil
+	}
+
+	masterURL := kmn.UpgradeContainerService.Properties.MasterProfile.FQDN
+
+	client, err := kmn.Client.GetKubernetesClient(masterURL, kmn.kubeConfig, interval, kmn.timeout)
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
+	ch := make(chan struct{}, 1)
+	go func() {
+		for {
+			masterNode, err := client.GetNode(*vmName)
+			if err != nil {
+				kmn.logger.Infof("Master VM: %s status error: %v\n", *vmName, err)
+				time.Sleep(time.Second * 5)
+			} else if node.IsNodeReady(masterNode) {
+				kmn.logger.Infof("Master VM: %s is ready", *vmName)
+				ch <- struct{}{}
+			} else {
+				kmn.logger.Infof("Master VM: %s not ready yet...", *vmName)
+				time.Sleep(time.Second * 5)
+			}
+		}
+	}()
 
-// Validate will verify the that master/agent node has been upgraded as expected.
-func (kmn *UpgradeMasterNode) Validate(vmName *string) error {
-	return nil
+	for {
+		select {
+		case <-ch:
+			return nil
+		case <-time.After(kmn.timeout):
+			kmn.logger.Errorf("Node was not ready within %v", kmn.timeout)
+			return fmt.Errorf("Node was not ready within %v", kmn.timeout)
+		}
+	}
 }

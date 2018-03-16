@@ -56,16 +56,17 @@ const usage = `Usage:
 	-e <log-errors configuration file>
 `
 
-var logDir string
-var orchestratorRe *regexp.Regexp
-var enableMetrics bool
-var saName string
-var saKey string
-var sa promote.StorageAccount
-var subID string
-var rgPrefix string
-var orchestrator string
-var region string
+var (
+	logDir         string
+	orchestratorRe *regexp.Regexp
+	enableMetrics  bool
+	saName         string
+	saKey          string
+	sa             promote.StorageAccount
+	subID          string
+	rgPrefix       string
+	orchestrator   string
+)
 
 func init() {
 	orchestratorRe = regexp.MustCompile(`"orchestratorType": "(\S+)"`)
@@ -109,6 +110,7 @@ func (m *TestManager) Run() error {
 	timeout := time.Duration(time.Minute * time.Duration(timeoutMin))
 
 	usePromoteToFailure := os.Getenv("PROMOTE_TO_FAILURE") == "true"
+	promoteToFailureTestSuffix := os.Getenv("PROMOTE_TO_FAILURE_TEST_SUFFIX")
 
 	var retries int
 	if usePromoteToFailure {
@@ -140,9 +142,13 @@ func (m *TestManager) Run() error {
 			resMap := make(map[string]*ErrorStat)
 			if usePromoteToFailure {
 				testName := strings.Replace(dep.ClusterDefinition, "/", "-", -1)
+				if promoteToFailureTestSuffix != "" {
+					testName += fmt.Sprintf("-%s", promoteToFailureTestSuffix)
+				}
 				if dep.Location != "" {
 					testName += fmt.Sprintf("-%s", dep.Location)
 				}
+
 				errorInfo := m.testRun(dep, index, 0, timeout)
 				var failureStr string
 				if errorInfo != nil {
@@ -171,7 +177,7 @@ func (m *TestManager) Run() error {
 						if err != nil {
 							fmt.Printf("Got error from RunPromoteToFailure: %#v\n", err)
 						}
-						if result == true {
+						if result {
 							success[index] = false
 						} else {
 							success[index] = true
@@ -587,7 +593,6 @@ func mainInternal() error {
 	for _, region := range acsengine.AzureLocations {
 		switch region {
 		case "eastus2euap": // initial deploy region for all RPs, known to be less stable
-		case "australiaeast": // no D2V2 support
 		case "japanwest": // no D2V2 support
 		case "chinaeast": // private cloud
 		case "chinanorth": // private cloud
@@ -599,11 +604,8 @@ func mainInternal() error {
 		case "usgovtexas": // US Gov cloud
 		case "koreacentral": // TODO make sure our versions of azure-cli support this cloud
 		case "centraluseuap": // TODO determine why this region is flaky
-		case "australiasoutheast": // TODO undo when this region is not flaky
 		case "brazilsouth": // canary region
-		case "ukwest": // no D2V2 capacity
-		case "southcentralus": // no D2V2 capacity
-		case "northcentralus": // no D2V2 capacity
+		case "francecentral": // not supported by sub
 		default:
 			regions = append(regions, region)
 		}

@@ -132,8 +132,14 @@ func kubernetesInfo(csOrch *OrchestratorProfile) ([]*OrchestratorVersionProfile,
 				})
 		}
 	} else {
-		ver, _ := semver.NewVersion(csOrch.OrchestratorVersion)
-		cons, _ := semver.NewConstraint("<1.5.0")
+		ver, err := semver.NewVersion(csOrch.OrchestratorVersion)
+		if err != nil {
+			return nil, err
+		}
+		cons, err := semver.NewConstraint("<1.6.0")
+		if err != nil {
+			return nil, err
+		}
 		if cons.Check(ver) {
 			return nil, fmt.Errorf("Kubernetes version %s is not supported", csOrch.OrchestratorVersion)
 		}
@@ -162,7 +168,7 @@ func kubernetesUpgrades(csOrch *OrchestratorProfile) ([]*OrchestratorProfile, er
 	if err != nil {
 		return nil, err
 	}
-	currentMajor, currentMinor, currentPatch := currentVer.Major(), currentVer.Minor(), currentVer.Patch()
+	currentMajor, currentMinor := currentVer.Major(), currentVer.Minor()
 	var nextMajor, nextMinor int64
 
 	switch {
@@ -175,6 +181,12 @@ func kubernetesUpgrades(csOrch *OrchestratorProfile) ([]*OrchestratorProfile, er
 	case currentMajor == 1 && currentMinor == 7:
 		nextMajor = 1
 		nextMinor = 8
+	case currentMajor == 1 && currentMinor == 8:
+		nextMajor = 1
+		nextMinor = 9
+	case currentMajor == 1 && currentMinor == 9:
+		nextMajor = 1
+		nextMinor = 10
 	}
 	for ver, supported := range common.AllKubernetesSupportedVersions {
 		if !supported {
@@ -185,7 +197,7 @@ func kubernetesUpgrades(csOrch *OrchestratorProfile) ([]*OrchestratorProfile, er
 			continue
 		}
 		// add patch upgrade
-		if nextVersion.Major() == currentMajor && nextVersion.Minor() == currentMinor && currentPatch < nextVersion.Patch() {
+		if nextVersion.Major() == currentMajor && nextVersion.Minor() == currentMinor && currentVer.LessThan(nextVersion) {
 			ret = append(ret, &OrchestratorProfile{
 				OrchestratorType:    Kubernetes,
 				OrchestratorVersion: ver,

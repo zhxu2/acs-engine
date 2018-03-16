@@ -24,6 +24,34 @@
       }, 
       "type": "string"
     },
+    "{{.Name}}osImageOffer": {
+      "defaultValue": "UbuntuServer",
+      "metadata": {
+        "description": "Linux OS image type."
+      },
+      "type": "string"
+    }, 
+    "{{.Name}}osImagePublisher": {
+      "defaultValue": "Canonical",
+      "metadata": {
+        "description": "OS image publisher."
+      },
+      "type": "string"
+    }, 
+    "{{.Name}}osImageSKU": {
+      "defaultValue": "16.04-LTS",
+      "metadata": {
+        "description": "OS image SKU."
+      },
+      "type": "string"
+    }, 
+    "{{.Name}}osImageVersion": {
+      "defaultValue": "16.04.201802220",
+      "metadata": {
+        "description": "OS image version."
+      },
+      "type": "string"
+    },
 {{if .IsCustomVNET}}
     "{{.Name}}VnetSubnetID": {
       "metadata": {
@@ -48,3 +76,17 @@
       "type": "string"
     }
 {{end}} 
+{{if HasPrivateRegistry}}
+  ,"registry": {
+      "metadata": {
+        "description": "Private Container Registry"
+      }, 
+      "type": "string"
+    },
+  "registryKey": {
+      "metadata": {
+        "description": "base64 encoded key to the Private Container Registry"
+      }, 
+      "type": "string"
+    }
+  {{end}}

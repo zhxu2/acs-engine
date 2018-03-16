@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/acs-engine/pkg/armhelpers"
@@ -14,6 +15,10 @@ import (
 const (
 	interval            = time.Second * 1
 	mirrorPodAnnotation = "kubernetes.io/config.mirror"
+
+	// This is checked into K8s code but I was getting into vendoring issues so I copied it here instead
+	kubernetesOptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
+	cordonMaxRetries                 = 5
 )
 
 type drainOperation struct {
@@ -32,16 +37,31 @@ func SafelyDrainNode(az armhelpers.ACSEngineClient, logger *log.Entry, masterURL
 	if err != nil {
 		return err
 	}
+	return SafelyDrainNodeWithClient(client, logger, nodeName, timeout)
+}
 
+// SafelyDrainNodeWithClient safely drains a node so that it can be deleted from the cluster
+func SafelyDrainNodeWithClient(client armhelpers.KubernetesClient, logger *log.Entry, nodeName string, timeout time.Duration) error {
 	//Mark the node unschedulable
-	node, err := client.GetNode(nodeName)
-	if err != nil {
-		return err
-	}
-	node.Spec.Unschedulable = true
-	node, err = client.UpdateNode(node)
-	if err != nil {
-		return err
+	var node *v1.Node
+	var err error
+	for i := 0; i < cordonMaxRetries; i++ {
+		node, err = client.GetNode(nodeName)
+		if err != nil {
+			return err
+		}
+		node.Spec.Unschedulable = true
+		node, err = client.UpdateNode(node)
+		if err != nil {
+			// If this error is because of a concurrent modification get the update
+			// and then apply the change
+			if strings.Contains(err.Error(), kubernetesOptimisticLockErrorMsg) {
+				logger.Infof("Node %s got an error suggesting a concurrent modification. Will retry to cordon", nodeName)
+				continue
+			}
+			return err
+		}
+		break
 	}
 	logger.Infof("Node %s has been marked unschedulable.", nodeName)
 
@@ -80,7 +100,7 @@ func mirrorPodFilter(pod v1.Pod) bool {
 
 func getControllerRef(pod *v1.Pod) *metav1.OwnerReference {
 	for _, ref := range pod.ObjectMeta.OwnerReferences {
-		if ref.Controller != nil && *ref.Controller == true {
+		if ref.Controller != nil && *ref.Controller {
 			return &ref
 		}
 	}

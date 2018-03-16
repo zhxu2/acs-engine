@@ -4,7 +4,9 @@
 |---|---|---|---|---|
 |Managed Disks|Beta|`vlabs`|[kubernetes-vmas.json](../../examples/disks-managed/kubernetes-vmss.json)|[Description](#feat-managed-disks)|
 |Calico Network Policy|Alpha|`vlabs`|[kubernetes-calico.json](../../examples/networkpolicy/kubernetes-calico.json)|[Description](#feat-calico)|
-|Custom VNET|Beta|`vlabs`|[kubernetesvnet.json](../../examples/vnet/kubernetesvnet.json)|[Description](#feat-custom-vnet)|
+|Cilium Network Policy|Alpha|`vlabs`|[kubernetes-cilium.json](../../examples/networkpolicy/kubernetes-cilium.json)|[Description](#feat-cilium)|
+|Custom VNET|Beta|`vlabs`|[kubernetesvnet-azure-cni.json](../../examples/vnet/kubernetesvnet-azure-cni.json)|[Description](#feat-custom-vnet)|
+|Clear Containers Runtime|Alpha|`vlabs`|[kubernetes-clear-containers.json](../../examples/kubernetes-clear-containers.json)|[Description](#feat-clear-containers)|
 
 <a name="feat-kubernetes-msi"></a>
 
@@ -12,26 +14,25 @@
 
 Enabling Managed Identity configures acs-engine to include and use MSI identities for all interactions with the Azure Resource Manager (ARM) API.
 
-Instead of using a static servic principal written to `/etc/kubernetes/azure.json`, Kubernetes will use a dynamic, time-limited token fetched from the MSI extension running on master and agent nodes. This support is currently alpha and requires Kubernetes v1.7.2 or newer.
+Instead of using a static servic principal written to `/etc/kubernetes/azure.json`, Kubernetes will use a dynamic, time-limited token fetched from the MSI extension running on master and agent nodes. This support is currently alpha and requires Kubernetes v1.9.1 or newer.
 
 Enable Managed Identity by adding `useManagedIdentity` in `kubernetesConfig`.
 
 ```json
 "kubernetesConfig": {
-  "useManagedIdentity": true,
-  "customHyperkubeImage": "docker.io/colemickens/hyperkube-amd64:3b15e8a446fa09d68a2056e2a5e650c90ae849ed"
+  "useManagedIdentity": true
 }
 ```
 
 <a name="feat-managed-disks"></a>
 
-## Optional: Enable Kubernetes Role-Based Access Control (RBAC)
+## Optional: Disable Kubernetes Role-Based Access Control (RBAC)
 
-By default, the cluster will be provisioned without [Role-Based Access Control](https://kubernetes.io/docs/admin/authorization/rbac/) enabled. Enable RBAC by adding `enableRbac` in `kubernetesConfig` in the api model:
+By default, the cluster will be provisioned with [Role-Based Access Control](https://kubernetes.io/docs/admin/authorization/rbac/) enabled. Disable RBAC by adding `enableRbac` in `kubernetesConfig` in the api model:
 
 ```console
       "kubernetesConfig": {
-        "enableRbac": true
+        "enableRbac": false
       }
 ```
 
@@ -99,6 +100,43 @@ spec:
             - managed
 ```
 
+## Using Azure integrated networking (CNI)
+
+Kubernetes clusters are configured by default to use the [Azure CNI plugin](https://github.com/Azure/azure-container-networking) which provides an Azure native networking experience. Pods will receive IP addresses directly from the vnet subnet on which they're hosted. If the api model doesn't specify explicitly, acs-engine will automatically provide the following `networkPolicy` configuration in `kubernetesConfig`:
+
+```
+      "kubernetesConfig": {
+        "networkPolicy": "azure"
+      }
+```
+
+### Additional Azure integrated networking configuration
+
+In addition you can modify the following settings to change the networking behavior when using Azure integrated networking:
+
+IP addresses are pre-allocated in the subnet. Using ipAddressCount you can specify how many you would like to pre-allocate. This number needs to account for number of pods you would like to run on that subnet.
+
+```
+    "masterProfile": {
+      "ipAddressCount": 200
+    },
+```
+
+Currently, the IP addresses that are pre-allocated aren't allowed by the default natter for Internet bound traffic. In order to work around this limitation we allow the user to specify the vnetCidr (eg. 10.0.0.0/8) to be EXCLUDED from the default masquerade rule that is applied. The result is that traffic destined for anything within that block will NOT be natted on the outbound VM interface. This field has been called vnetCidr but may be wider than the vnet cidr block if you would like POD IPs to be routable across vnets using vnet-peering or express-route.
+```
+    "masterProfile": {
+      "vnetCidr": "10.0.0.0/8",
+    },
+```
+
+When using Azure integrated networking the maxPods setting will be set to 30 by default. This number can be changed keeping in mind that there is a limit of 4,000 IPs per vnet.
+
+```
+      "kubernetesConfig": {
+        "maxPods": 50
+      }
+```
+
 <a name="feat-calico"></a>
 
 ## Network Policy Enforcement with Calico
@@ -123,21 +161,69 @@ Per default Calico still allows all communication within the cluster. Using Kube
 
 * [NetworkPolicy User Guide](https://kubernetes.io/docs/user-guide/networkpolicies/)
 * [NetworkPolicy Example Walkthrough](https://kubernetes.io/docs/getting-started-guides/network-policy/walkthrough/)
-* [Calico Kubernetes](http://docs.projectcalico.org/v2.0/getting-started/kubernetes/)
+* [Calico Kubernetes](https://github.com/Azure/acs-engine/blob/master/examples/networkpolicy)
+
+<a name="feat-cilium"></a>
+
+## Network Policy Enforcement with Cilium
+
+Using the default configuration, Kubernetes allows communication between all
+Pods within a cluster. To ensure that Pods can only be accessed by authorized
+Pods, a policy enforcement is needed. To enable policy enforcement using Cilium refer to the 
+[cluster definition](https://github.com/Azure/acs-engine/blob/master/docs/clusterdefinition.md#kubernetesconfig) 
+document under networkPolicy. There is also a reference cluster definition available 
+[here](https://github.com/Azure/acs-engine/blob/master/examples/networkpolicy/kubernetes-cilium.json).
+
+This will deploy a Cilium agent to every instance of the cluster
+using a Kubernetes DaemonSet. After a successful deployment you should be able
+to see these Pods running in your cluster:
+
+```
+kubectl get pods --namespace kube-system -l k8s-app=cilium -o wide
+NAME                READY     STATUS    RESTARTS   AGE       IP             NODE
+cilium-034zh   2/2       Running   0          2h        10.240.255.5   k8s-master-30179930-0
+cilium-qmr7n   2/2       Running   0          2h        10.240.0.4     k8s-agentpool1-30179930-1
+cilium-z3p02   2/2       Running   0          2h        10.240.0.5     k8s-agentpool1-30179930-0
+```
+
+Per default Cilium still allows all communication within the cluster. Using Kubernetes' NetworkPolicy API, 
+you can define stricter policies. Good resources to get information about that are:
+
+* [Cilum Network Policy Docs](https://cilium.readthedocs.io/en/latest/kubernetes/policy/#k8s-policy)
+* [NetworkPolicy User Guide](https://kubernetes.io/docs/user-guide/networkpolicies/)
+* [NetworkPolicy Example Walkthrough](https://kubernetes.io/docs/getting-started-guides/network-policy/walkthrough/)
+* [Cilium Kubernetes](https://github.com/Azure/acs-engine/blob/master/examples/networkpolicy)
 
 <a name="feat-custom-vnet"></a>
 
 ## Custom VNET
 
-ACS Engine supports deploying into an existing VNET. Operators must specify the ARM path/id of Subnets for the `masterProfile` and  any `agentPoolProfiles`. After the cluster is provisioned there are some required modifications to VNET Route Tables.
+*Note: Custom VNET for Kubernetes Windows cluster has a [known issue](https://github.com/Azure/acs-engine/issues/1767).*
 
-Before provisioning, modify the `masterProfile` and `agentPoolProfiles` sections in the cluster definition to place masters and agents into your desired subnets:
+ACS Engine supports deploying into an existing VNET. Operators must specify the ARM path/id of Subnets for the `masterProfile` and  any `agentPoolProfiles`, as well as the first IP address to use for IP static IP allocation in `firstConsecutiveStaticIP`. Additionally, to prevent source address NAT'ing within the VNET, we assign to the `vnetCidr` property in `masterProfile` the CIDR block that represents the usable address space in the existing VNET.
+
+Depending upon the size of the VNET address space, during deployment, it is possible to experience IP address assignment collision between the required Kubernetes static IPs (one each per master and one for the API server load balancer, if more than one masters) and Azure CNI-assigned dynamic IPs (one for each NIC on the agent nodes). In practice, the larger the VNET the less likely this is to happen; some detail, and then a guideline.
+
+First, the detail:
+
+* Azure CNI assigns dynamic IP addresses from the "beginning" of the subnet IP address space (specifically, it looks for available addresses starting at ".4" ["10.0.0.4" in a "10.0.0.0/24" network])
+* acs-engine will require a range of up to 16 unused IP addresses in multi-master scenarios (1 per master for up to 5 masters, and then the next 10 IP addresses immediately following the "last" master for headroom reservation, and finally 1 more for the load balancer immediately adjacent to the afore-described _n_ masters+10 sequence) to successfully scaffold the network stack for your cluster
+
+A guideline that will remove the danger of IP address allocation collision during deployment:
+
+* If possible, assign to the `firstConsecutiveStaticIP` configuration property an IP address that is near the "end" of the available IP address space in the desired  subnet.
+  * For example, if the desired subnet is a `/24`, choose the "239" address in that network space
+
+In larger subnets (e.g., `/16`) it's not as practically useful to push static IP assignment to the very "end" of large subnet, but as long as it's not in the "first" `/24` (for example) your deployment will be resilient to this edge case behavior.
+
+Before provisioning, modify the `masterProfile` and `agentPoolProfiles` to match the above requirements, with the below being a representative example:
 
 ```json
 "masterProfile": {
   ...
   "vnetSubnetId": "/subscriptions/SUB_ID/resourceGroups/RG_NAME/providers/Microsoft.Network/virtualNetworks/VNET_NAME/subnets/MASTER_SUBNET_NAME",
-  "firstConsecutiveStaticIP": "10.239.255.239"
+  "firstConsecutiveStaticIP": "10.239.255.239",
+  "vnetCidr": "10.239.0.0/16",
   ...
 },
 ...
@@ -150,7 +236,9 @@ Before provisioning, modify the `masterProfile` and `agentPoolProfiles` sections
   },
 ```
 
-After a cluster finishes provisioning, fetch the id of the Route Table resource from `Microsoft.Network` provider in your new cluster's Resource Group.
+### Kubenet Networking Custom VNET
+
+If you're not using Azure CNI (e.g., `"networkPolicy": "none"` in the `kubernetesConfig` api model configuration object): After a custom VNET-configured cluster finishes provisioning, fetch the id of the Route Table resource from `Microsoft.Network` provider in your new cluster's Resource Group.
 
 The route table resource id is of the format: `/subscriptions/SUBSCRIPTIONID/resourceGroups/RESOURCEGROUPNAME/providers/Microsoft.Network/routeTables/ROUTETABLENAME`
 
@@ -183,39 +271,74 @@ E.g.:
 ]
 ```
 
-## Using Azure integrated networking (CNI)
+<a name="feat-clear-containers"></a>
 
-Kubernetes clusters can be configured to use the [Azure CNI plugin](https://github.com/Azure/azure-container-networking) which provides a Azure native networking experience. Pods will receive IP addresses directly from the vnet subnet on which they're hosted. To enable Azure integrated networking the following must be added to your cluster definition:
+## Clear Containers
+
+You can designate kubernetes agents to use Intel's Clear Containers as the
+container runtime by setting:
 
 ```
       "kubernetesConfig": {
-        "networkPolicy": "azure"
+        "containerRuntime": "clear-containers"
       }
 ```
 
-### Additional Azure integrated networking configuration
+You will need to make sure your agents are using a `vmSize` that [supports
+nested
+virtualization](https://azure.microsoft.com/en-us/blog/nested-virtualization-in-azure/).
+These are the `Dv3` or `Ev3` series nodes.
 
-In addition you can modify the following settings to change the networking behavior when using Azure integrated networking:
-
-IP addresses are pre-allocated in the subnet. Using ipAddressCount you can specify how many you would like to pre-allocate. This number needs to account for number of pods you would like to run on that subnet.
+You will also need to attach a disk to those nodes for the device-mapper disk that clear containers will use.
+This should look like:
 
 ```
-    "masterProfile": {
-      "ipAddressCount": 200
-    },
+"agentPoolProfiles": [
+      {
+        "name": "agentpool1",
+        "count": 3,
+        "vmSize": "Standard_D4s_v3",
+        "availabilityProfile": "AvailabilitySet",
+        "storageProfile": "ManagedDisks",
+        "diskSizesGB": [1023]
+      }
+    ],
 ```
 
-Currently, the IP addresses that are pre-allocated aren't allowed by the default natter for Internet bound traffic. In order to work around this limitation we allow the user to specify the vnetCidr (eg. 10.0.0.0/8) to be EXCLUDED from the default masquerade rule that is applied. The result is that traffic destined for anything within that block will NOT be natted on the outbound VM interface. This field has been called vnetCidr but may be wider than the vnet cidr block if you would like POD IPs to be routable across vnets using vnet-peering or express-route.
-```
-    "masterProfile": {
-      "vnetCidr": "10.0.0.0/8",
-    },
-```
+<a name="feat-private-cluster"></a>
 
-When using Azure integrated networking the maxPods setting will be set to 30 by default. This number can be changed keeping in mind that there is a limit of 4,000 IPs per vnet.
+## Private Cluster
+
+You can build a private Kubernetes cluster with no public IP addresses assigned by setting:
 
 ```
       "kubernetesConfig": {
-        "maxPods": 50
+        "privateCluster": {
+          "enabled": true
+      }
+```
+
+In order to access this cluster using kubectl commands, you will need a jumpbox in the same VNET (or onto a peer VNET that routes to the VNET). If you do not already have a jumpbox, you can use acs-engine to provision your jumpbox (see below) or create it manually. You can create a new jumpbox manually in the Azure Portal under "Create a resource > Compute > Ubuntu Server 16.04 LTS VM" or using the [az cli](https://docs.microsoft.com/en-us/cli/azure/vm?view=azure-cli-latest#az_vm_create). You will then be able to:
+- install [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) on the jumpbox
+- copy the kubeconfig artifact for the right region from the deployment directory to the jumpbox
+- run `export KUBECONFIG=<path to your kubeconfig>`
+- run `kubectl` commands directly on the jumpbox
+
+Alternatively, you may also ssh into your nodes (given that your ssh key is on the jumpbox) and use the admin user kubeconfig on the cluster to run `kubectl` commands directly on the cluster. However, in the case of a multi-master private cluster, the connection will be refused when running commands on a master every time that master gets picked by the load balancer as it will be routing to itself (1 in 3 times for a 3 master cluster, 1 in 5 for 5 masters). This is expected behavior and therefore the method aforementioned of accessing nodes on the jumpbox using the `_output` directory kubeconfig is preferred.
+
+To auto-provision a jumpbox with your acs-engine deployment use:
+
+```
+      "kubernetesConfig": {
+        "privateCluster": {
+          "enabled": true,
+          "jumpboxProfile": {
+            "name": "my-jb",
+            "vmSize": "Standard_D4s_v3",
+            "osDiskSizeGB": 30,
+            "storageProfile": "ManagedDisks",
+            "username": "azureuser",
+            "publicKey": "xxx"
+          }
       }
 ```

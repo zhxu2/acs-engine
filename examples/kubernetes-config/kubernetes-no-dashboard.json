@@ -6,7 +6,7 @@
       "kubernetesConfig": {
         "addons": [
           {
-            "name": "dashboard",
+            "name": "kubernetes-dashboard",
             "enabled" : false
           }
         ]
@@ -26,7 +26,7 @@
       }
     ],
     "linuxProfile": {
-      "adminUsername": "azureUser",
+      "adminUsername": "azureuser",
       "ssh": {
         "publicKeys": [
           {
