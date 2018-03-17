@@ -86,6 +86,22 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 $global:AzureCNIKubeletOptions = " --network-plugin=cni --cni-bin-dir=$global:AzureCNIBinDir --cni-conf-dir=$global:AzureCNIConfDir"
 $global:AzureCNIEnabled = $false
 
+function
+Get-AzureHostIP()
+{
+    $ipAddress = (Get-NetIPAddress -InterfaceIndex (Get-NetAdapter| ? ifAlias -like "Ethernet*").ifIndex -AddressFamily IPv4).IPAddress
+    if ($ipAddress -is [array])
+    {
+        return $ipAddress[0]
+    }
+    else
+    {
+        return $ipAddress
+    }
+}
+
+$global:AzureHostIP = Get-AzureHostIP
+
 filter Timestamp {"$(Get-Date -Format o): $_"}
 
 function
