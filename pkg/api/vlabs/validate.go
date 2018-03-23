@@ -507,6 +507,7 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 	const minKubeletRetries = 4
 	// k8s versions that have cloudprovider backoff enabled
 	var backoffEnabledVersions = map[string]bool{
+		common.KubernetesVersion1Dot10Dot0RC1:   true,
 		common.KubernetesVersion1Dot10Dot0Beta4: true,
 		common.KubernetesVersion1Dot10Dot0Beta2: true,
 		common.KubernetesVersion1Dot9Dot0:       true,
@@ -514,6 +515,8 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		common.KubernetesVersion1Dot9Dot2:       true,
 		common.KubernetesVersion1Dot9Dot3:       true,
 		common.KubernetesVersion1Dot9Dot4:       true,
+		common.KubernetesVersion1Dot9Dot5:       true,
+		common.KubernetesVersion1Dot9Dot6:       true,
 		common.KubernetesVersion1Dot8Dot0:       true,
 		common.KubernetesVersion1Dot8Dot1:       true,
 		common.KubernetesVersion1Dot8Dot2:       true,
@@ -522,6 +525,7 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		common.KubernetesVersion1Dot8Dot7:       true,
 		common.KubernetesVersion1Dot8Dot8:       true,
 		common.KubernetesVersion1Dot8Dot9:       true,
+		common.KubernetesVersion1Dot8Dot10:      true,
 		common.KubernetesVersion1Dot7Dot0:       true,
 		common.KubernetesVersion1Dot7Dot1:       true,
 		common.KubernetesVersion1Dot7Dot2:       true,
@@ -533,6 +537,7 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		common.KubernetesVersion1Dot7Dot12:      true,
 		common.KubernetesVersion1Dot7Dot13:      true,
 		common.KubernetesVersion1Dot7Dot14:      true,
+		common.KubernetesVersion1Dot7Dot15:      true,
 		common.KubernetesVersion1Dot6Dot6:       true,
 		common.KubernetesVersion1Dot6Dot9:       true,
 		common.KubernetesVersion1Dot6Dot11:      true,
@@ -680,13 +685,17 @@ func (a *KubernetesConfig) Validate(k8sVersion string) error {
 		common.KubernetesVersion1Dot8Dot7:       true,
 		common.KubernetesVersion1Dot8Dot8:       true,
 		common.KubernetesVersion1Dot8Dot9:       true,
+		common.KubernetesVersion1Dot8Dot10:      true,
 		common.KubernetesVersion1Dot9Dot0:       true,
 		common.KubernetesVersion1Dot9Dot1:       true,
 		common.KubernetesVersion1Dot9Dot2:       true,
 		common.KubernetesVersion1Dot9Dot3:       true,
 		common.KubernetesVersion1Dot9Dot4:       true,
+		common.KubernetesVersion1Dot9Dot5:       true,
+		common.KubernetesVersion1Dot9Dot6:       true,
 		common.KubernetesVersion1Dot10Dot0Beta2: true,
 		common.KubernetesVersion1Dot10Dot0Beta4: true,
+		common.KubernetesVersion1Dot10Dot0RC1:   true,
 	}
 
 	if a.UseCloudControllerManager != nil && *a.UseCloudControllerManager || a.CustomCcmImage != "" {

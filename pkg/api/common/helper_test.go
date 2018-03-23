@@ -14,8 +14,8 @@ func Test_GetValidPatchVersion(t *testing.T) {
 	}
 
 	version = GetValidPatchVersion(Kubernetes, "1.7.3")
-	if version != KubernetesVersion1Dot7Dot14 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot14)
+	if version != KubernetesVersion1Dot7Dot15 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot15)
 	}
 
 	version = GetValidPatchVersion(Kubernetes, "1.8.7")
@@ -28,14 +28,14 @@ func Test_GetValidPatchVersion(t *testing.T) {
 		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot1)
 	}
 
-	version = GetValidPatchVersion(Kubernetes, "1.9.2")
-	if version != KubernetesVersion1Dot9Dot2 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot2)
+	version = GetValidPatchVersion(Kubernetes, "1.9.6")
+	if version != KubernetesVersion1Dot9Dot6 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot6)
 	}
 
-	version = GetValidPatchVersion(Kubernetes, "1.10.0-beta.4")
-	if version != KubernetesVersion1Dot10Dot0Beta4 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0Beta4)
+	version = GetValidPatchVersion(Kubernetes, "1.10.0-rc.1")
+	if version != KubernetesVersion1Dot10Dot0RC1 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0RC1)
 	}
 }
 
@@ -46,23 +46,23 @@ func TestGetLatestPatchVersion(t *testing.T) {
 	}
 
 	version = GetLatestPatchVersion("1.7", GetAllSupportedKubernetesVersions())
-	if version != KubernetesVersion1Dot7Dot14 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot14)
+	if version != KubernetesVersion1Dot7Dot15 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot15)
 	}
 
 	version = GetLatestPatchVersion("1.8", GetAllSupportedKubernetesVersions())
-	if version != KubernetesVersion1Dot8Dot9 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot8Dot9)
+	if version != KubernetesVersion1Dot8Dot10 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot8Dot10)
 	}
 
 	version = GetLatestPatchVersion("1.9", GetAllSupportedKubernetesVersions())
-	if version != KubernetesVersion1Dot9Dot4 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot4)
+	if version != KubernetesVersion1Dot9Dot6 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot6)
 	}
 
 	version = GetLatestPatchVersion("1.10", GetAllSupportedKubernetesVersions())
-	if version != KubernetesVersion1Dot10Dot0Beta4 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0Beta4)
+	if version != KubernetesVersion1Dot10Dot0RC1 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0RC1)
 	}
 
 	expected := "99.1.2"
@@ -94,8 +94,8 @@ func Test_RationalizeReleaseAndVersion(t *testing.T) {
 	}
 
 	version = RationalizeReleaseAndVersion(Kubernetes, "1.7", "", false)
-	if version != KubernetesVersion1Dot7Dot14 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot14)
+	if version != KubernetesVersion1Dot7Dot15 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot15)
 	}
 
 	version = RationalizeReleaseAndVersion(Kubernetes, "", "1.7.14", false)
@@ -103,9 +103,9 @@ func Test_RationalizeReleaseAndVersion(t *testing.T) {
 		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot14)
 	}
 
-	version = RationalizeReleaseAndVersion(Kubernetes, "1.7", "1.7.14", false)
-	if version != KubernetesVersion1Dot7Dot14 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot14)
+	version = RationalizeReleaseAndVersion(Kubernetes, "1.7", "1.7.15", false)
+	if version != KubernetesVersion1Dot7Dot15 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot7Dot15)
 	}
 
 	version = RationalizeReleaseAndVersion(Kubernetes, "", "1.6.7", false)
@@ -123,18 +123,23 @@ func Test_RationalizeReleaseAndVersion(t *testing.T) {
 		t.Errorf("It is not empty string")
 	}
 
+	version = RationalizeReleaseAndVersion(Kubernetes, "v1.8", "", false)
+	if version != KubernetesVersion1Dot8Dot10 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot8Dot10)
+	}
+
 	version = RationalizeReleaseAndVersion(Kubernetes, "", "v1.8.8", false)
 	if version != KubernetesVersion1Dot8Dot8 {
 		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot8Dot8)
 	}
 
 	version = RationalizeReleaseAndVersion(Kubernetes, "v1.9", "", false)
-	if version != KubernetesVersion1Dot9Dot4 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot4)
+	if version != KubernetesVersion1Dot9Dot6 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot9Dot6)
 	}
 
 	version = RationalizeReleaseAndVersion(Kubernetes, "1.10", "", false)
-	if version != KubernetesVersion1Dot10Dot0Beta4 {
-		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0Beta4)
+	if version != KubernetesVersion1Dot10Dot0RC1 {
+		t.Errorf("It is not Kubernetes version %s", KubernetesVersion1Dot10Dot0RC1)
 	}
 }
