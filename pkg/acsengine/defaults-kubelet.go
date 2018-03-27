@@ -21,7 +21,6 @@ func setKubeletConfig(cs *api.ContainerService) {
 		"--cgroups-per-qos":                 "true",
 		"--enforce-node-allocatable":        "pods",
 		"--kubeconfig":                      "/var/lib/kubelet/kubeconfig",
-		"--azure-container-registry-config": "/etc/kubernetes/azure.json",
 		"--keep-terminated-pod-volumes":     "false",
 	}
 
@@ -32,19 +31,20 @@ func setKubeletConfig(cs *api.ContainerService) {
 
 	// Default Kubelet config
 	defaultKubeletConfig := map[string]string{
-		"--cluster-domain":               "cluster.local",
-		"--network-plugin":               "cni",
-		"--pod-infra-container-image":    cloudSpecConfig.KubernetesSpecConfig.KubernetesImageBase + KubeConfigs[o.OrchestratorVersion]["pause"],
-		"--max-pods":                     strconv.Itoa(DefaultKubernetesKubeletMaxPods),
-		"--eviction-hard":                DefaultKubernetesHardEvictionThreshold,
-		"--node-status-update-frequency": KubeConfigs[o.OrchestratorVersion]["nodestatusfreq"],
-		"--image-gc-high-threshold":      strconv.Itoa(DefaultKubernetesGCHighThreshold),
-		"--image-gc-low-threshold":       strconv.Itoa(DefaultKubernetesGCLowThreshold),
-		"--non-masquerade-cidr":          DefaultNonMasqueradeCidr,
-		"--cloud-provider":               "azure",
-		"--cloud-config":                 "/etc/kubernetes/azure.json",
-		"--event-qps":                    DefaultKubeletEventQPS,
-		"--cadvisor-port":                DefaultKubeletCadvisorPort,
+		"--cluster-domain":                  "cluster.local",
+		"--network-plugin":                  "cni",
+		"--pod-infra-container-image":       cloudSpecConfig.KubernetesSpecConfig.KubernetesImageBase + KubeConfigs[o.OrchestratorVersion]["pause"],
+		"--max-pods":                        strconv.Itoa(DefaultKubernetesKubeletMaxPods),
+		"--eviction-hard":                   DefaultKubernetesHardEvictionThreshold,
+		"--node-status-update-frequency":    KubeConfigs[o.OrchestratorVersion]["nodestatusfreq"],
+		"--image-gc-high-threshold":         strconv.Itoa(DefaultKubernetesGCHighThreshold),
+		"--image-gc-low-threshold":          strconv.Itoa(DefaultKubernetesGCLowThreshold),
+		"--non-masquerade-cidr":             DefaultNonMasqueradeCidr,
+		"--cloud-provider":                  "azure",
+		"--cloud-config":                    "/etc/kubernetes/azure.json",
+		"--azure-container-registry-config": "/etc/kubernetes/azure.json",
+		"--event-qps":                       DefaultKubeletEventQPS,
+		"--cadvisor-port":                   DefaultKubeletCadvisorPort,
 	}
 
 	// If no user-configurable kubelet config values exists, use the defaults
