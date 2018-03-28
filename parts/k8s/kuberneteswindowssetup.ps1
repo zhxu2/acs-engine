@@ -102,6 +102,21 @@ Get-AzureHostIP()
 
 $global:AzureHostIP = Get-AzureHostIP
 
+function Get-AzureHostDnsIp()
+{
+    $dnsAddress = (Get-DnsClientServerAddress -InterfaceIndex (Get-NetAdapter| ? ifAlias -like "Ethernet*").ifIndex -AddressFamily IPv4).ServerAddresses
+    if ($dnsAddress -is [array])
+    {
+        return $dnsAddress[0]
+    }
+    else
+    {
+        return $dnsAddress
+    }
+}
+
+$global:AzureHostDnsIp = Get-AzureHostDnsIp
+
 filter Timestamp {"$(Get-Date -Format o): $_"}
 
 function
@@ -338,7 +353,7 @@ c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-containe
 `$global:AzureHostname = "$AzureHostname"
 `$global:MasterIP = "$MasterIP"
 `$global:KubeDnsSearchPath = "svc.cluster.local"
-`$global:KubeDnsServiceIp = "$KubeDnsServiceIp"
+`$global:KubeDnsServiceIp = "$global:AzureHostDnsIp"
 `$global:MasterSubnet = "$global:MasterSubnet"
 `$global:KubeClusterCIDR = "$global:KubeClusterCIDR"
 `$global:KubeServiceCIDR = "$global:KubeServiceCIDR"
@@ -348,7 +363,7 @@ c:\k\kubelet.exe --hostname-override=`$global:AzureHostname --pod-infra-containe
 `$global:CNIConfig = "$global:CNIConfig"
 `$global:HNSModule = "$global:HNSModule"
 `$global:VolumePluginDir = "$global:VolumePluginDir"
-`$global:NetworkPolicy="$global:NetworkPolicy" 
+`$global:NetworkPolicy="$global:NetworkPolicy"
 
 "@
 
