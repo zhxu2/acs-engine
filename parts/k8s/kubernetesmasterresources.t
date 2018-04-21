@@ -254,7 +254,7 @@
                   "id": "[concat(variables('masterLbID'),'/inboundNatRules/SSH-',variables('masterVMNamePrefix'),copyIndex(variables('masterOffset')))]"
                 }
               ],
-              "privateIPAddress": "[variables('masterPrivateIpAddrs')[copyIndex(variables('masterOffset'))]]",
+              "privateIPAddress": "[concat(variables('aciSystemNodeAddrPrefix'), copyIndex(int(variables('aciPrimaryIPOctet4'))))]",
               "primary": true,
               "privateIPAllocationMethod": "Static",
               "subnet": {
@@ -269,7 +269,8 @@
             "name": "ipconfig{{$seq}}",
             "properties": {
               "primary": false,
-              "privateIPAllocationMethod": "Dynamic",
+              "privateIPAddress": "[concat(variables('aciSystemPodAddrPrefix'), copyIndex(int(variables('aciPrimaryIPOctet4'))), '.', add(sub({{$seq}}, 1), int(variables('aciPrimaryIPOctet4'))))]",
+              "privateIPAllocationMethod": "Static",
               "subnet": {
                 "id": "[variables('vnetSubnetID')]"
               }

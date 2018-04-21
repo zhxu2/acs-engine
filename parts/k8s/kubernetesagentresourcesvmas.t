@@ -25,17 +25,22 @@
             "name": "ipconfig{{$seq}}",
             "properties": {
               {{if eq $seq 1}}
-              "primary": true,
-              {{end}}
-              {{if eq $.Name "system"}}
-              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(50, int(variables('masterFirstAddrOctet4')))))]",
-              "privateIPAllocationMethod": "Static",
+                "primary": true,
+                {{if eq $.Name "system"}}
+                "privateIPAddress": "[concat(variables('aciSystemNodeAddrPrefix'), copyIndex(add(50, int(variables('aciPrimaryIPOctet4')))))]",
+                {{else if eq $.Name "agentpool1"}}
+                "privateIPAddress": "[concat(variables('aciSystemNodeAddrPrefix'), copyIndex(add(100, int(variables('aciPrimaryIPOctet4')))))]",
+                {{else}}
+                "privateIPAddress": "[concat(variables('aciCustomerNodeAddrPrefix'), copyIndex(mul(25, sub(int(variables('{{$.Name}}Number')), 2))), '.', variables('aciPrimaryIPOctet4'))]",
+                {{end}}
+              {{else if eq $.Name "system"}}
+              "privateIPAddress": "[concat(variables('aciSystemPodAddrPrefix'), copyIndex(add(50, int(variables('aciPrimaryIPOctet4')))), '.', add(sub({{$seq}}, 1), int(variables('aciPrimaryIPOctet4'))))]",
               {{else if eq $.Name "agentpool1"}}
-              "privateIPAddress": "[concat(variables('masterFirstAddrPrefix'), copyIndex(add(100, int(variables('masterFirstAddrOctet4')))))]",
-              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[concat(variables('aciSystemPodAddrPrefix'), copyIndex(add(100, int(variables('aciPrimaryIPOctet4')))), '.', add(sub({{$seq}}, 1), int(variables('aciPrimaryIPOctet4'))))]",
               {{else}}
-              "privateIPAllocationMethod": "Dynamic",
+              "privateIPAddress": "[concat(variables('aciCustomerPodAddrPrefix'), copyIndex(mul(25, sub(int(variables('{{$.Name}}Number')), 2))), '.', add(sub({{$seq}}, 1), int(variables('aciPrimaryIPOctet4'))))]",
               {{end}}
+              "privateIPAllocationMethod": "Static",
               "subnet": {
                 "id": "[variables('{{$.Name}}VnetSubnetID')]"
               }
@@ -60,7 +65,7 @@
         {
             "platformFaultDomainCount": "2",
             "platformUpdateDomainCount": "3",
-		"managed" : "true"
+            "managed" : "true"
         },
   
       "type": "Microsoft.Compute/availabilitySets"
