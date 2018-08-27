@@ -85,6 +85,7 @@ func setKubeletConfig(cs *api.ContainerService) {
 		for _, key := range []string{"--anonymous-auth", "--client-ca-file"} {
 			delete(o.KubernetesConfig.KubeletConfig, key)
 		}
+		o.KubernetesConfig.KubeletConfig["--authorization-mode"] = "AlwaysAllow"
 	}
 
 	// Master-specific kubelet config changes go here
