@@ -255,6 +255,12 @@ const (
 	// StandardD15V2 specifies the standard d15v2 state for virtual machine
 	// size types.
 	StandardD15V2 VirtualMachineSizeTypes = "Standard_D15_v2"
+	// StandardD16V3 specifies the standard d16v3 state for virtual machine
+	// size types.
+	StandardD16V3 VirtualMachineSizeTypes = "Standard_D16_v3"
+	// StandardD16sV3 specifies the standard d16sv3 state for virtual machine
+	// size types.
+	StandardD16sV3 VirtualMachineSizeTypes = "Standard_D16s_v3"
 	// StandardD1V2 specifies the standard d1v2 state for virtual machine size
 	// types.
 	StandardD1V2 VirtualMachineSizeTypes = "Standard_D1_v2"
@@ -264,9 +270,21 @@ const (
 	// StandardD2V2 specifies the standard d2v2 state for virtual machine size
 	// types.
 	StandardD2V2 VirtualMachineSizeTypes = "Standard_D2_v2"
+	// StandardD2V3 specifies the standard d2v3 state for virtual machine size
+	// types.
+	StandardD2V3 VirtualMachineSizeTypes = "Standard_D2_v3"
+	// StandardD2sV3 specifies the standard d2sv3 state for virtual machine size
+	// types.
+	StandardD2sV3 VirtualMachineSizeTypes = "Standard_D2s_v3"
 	// StandardD3 specifies the standard d3 state for virtual machine size
 	// types.
 	StandardD3 VirtualMachineSizeTypes = "Standard_D3"
+	// StandardD32V3 specifies the standard d32v3 state for virtual machine size
+	// types.
+	StandardD32V3 VirtualMachineSizeTypes = "Standard_D32_v3"
+	// StandardD32sV3 specifies the standard d32sv3 state for virtual machine size
+	// types.
+	StandardD32sV3 VirtualMachineSizeTypes = "Standard_D32s_v3"
 	// StandardD3V2 specifies the standard d3v2 state for virtual machine size
 	// types.
 	StandardD3V2 VirtualMachineSizeTypes = "Standard_D3_v2"
@@ -276,9 +294,27 @@ const (
 	// StandardD4V2 specifies the standard d4v2 state for virtual machine size
 	// types.
 	StandardD4V2 VirtualMachineSizeTypes = "Standard_D4_v2"
+	// StandardD4V3 specifies the standard d4v3 state for virtual machine size
+	// types.
+	StandardD4V3 VirtualMachineSizeTypes = "Standard_D4_v3"
+	// StandardD4sV3 specifies the standard d4sv3 state for virtual machine size
+	// types.
+	StandardD4sV3 VirtualMachineSizeTypes = "Standard_D4s_v3"
 	// StandardD5V2 specifies the standard d5v2 state for virtual machine size
 	// types.
 	StandardD5V2 VirtualMachineSizeTypes = "Standard_D5_v2"
+	// StandardD64V3 specifies the standard d64v3 state for virtual machine size
+	// types.
+	StandardD64V3 VirtualMachineSizeTypes = "Standard_D64_v3"
+	// StandardD64sV3 specifies the standard d64sv3 state for virtual machine size
+	// types.
+	StandardD64sV3 VirtualMachineSizeTypes = "Standard_D64s_v3"
+	// StandardD8V3 specifies the standard d8v3 state for virtual machine size
+	// types.
+	StandardD8V3 VirtualMachineSizeTypes = "Standard_D8_v3"
+	// StandardD8sV3 specifies the standard d8sv3 state for virtual machine size
+	// types.
+	StandardD8sV3 VirtualMachineSizeTypes = "Standard_D8s_v3"
 	// StandardDS1 specifies the standard ds1 state for virtual machine size
 	// types.
 	StandardDS1 VirtualMachineSizeTypes = "Standard_DS1"

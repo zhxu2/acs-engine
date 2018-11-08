@@ -84,22 +84,46 @@ const (
 	StandardD14 VMSizeTypes = "Standard_D14"
 	// StandardD14V2 specifies the standard d14v2 state for vm size types.
 	StandardD14V2 VMSizeTypes = "Standard_D14_v2"
+    // StandardD16V3 specifies the standard d16v3 state for vm size types.
+	StandardD16V3 VMSizeTypes = "Standard_D16_v3"
+	// StandardD16sV3 specifies the standard d16sv3 state for vm size types.
+	StandardD16sV3 VMSizeTypes = "Standard_D16s_v3"
 	// StandardD1V2 specifies the standard d1v2 state for vm size types.
 	StandardD1V2 VMSizeTypes = "Standard_D1_v2"
 	// StandardD2 specifies the standard d2 state for vm size types.
 	StandardD2 VMSizeTypes = "Standard_D2"
 	// StandardD2V2 specifies the standard d2v2 state for vm size types.
 	StandardD2V2 VMSizeTypes = "Standard_D2_v2"
+	// StandardD2V3 specifies the standard d2v3 state for vm size types.
+	StandardD2V3 VMSizeTypes = "Standard_D2_v3"
+	// StandardD2sV3 specifies the standard d2sv3 state for vm size types.
+	StandardD2sV3 VMSizeTypes = "Standard_D2s_v3"
 	// StandardD3 specifies the standard d3 state for vm size types.
 	StandardD3 VMSizeTypes = "Standard_D3"
+	// StandardD32V3 specifies the standard d32v3 state for vm size types.
+	StandardD32V3 VMSizeTypes = "Standard_D32_v3"
+	// StandardD32sV3 specifies the standard d32sv3 state for vm size types.
+	StandardD32sV3 VMSizeTypes = "Standard_D32s_v3"
 	// StandardD3V2 specifies the standard d3v2 state for vm size types.
 	StandardD3V2 VMSizeTypes = "Standard_D3_v2"
 	// StandardD4 specifies the standard d4 state for vm size types.
 	StandardD4 VMSizeTypes = "Standard_D4"
 	// StandardD4V2 specifies the standard d4v2 state for vm size types.
 	StandardD4V2 VMSizeTypes = "Standard_D4_v2"
+	// StandardD4V3 specifies the standard d4v3 state for vm size types.
+	StandardD4V3 VMSizeTypes = "Standard_D4_v3"
+	// StandardD4sV3 specifies the standard d4sv3 state for vm size types.
+	StandardD4sV3 VMSizeTypes = "Standard_D4s_v3"
 	// StandardD5V2 specifies the standard d5v2 state for vm size types.
 	StandardD5V2 VMSizeTypes = "Standard_D5_v2"
+	// StandardD64V3 specifies the standard d64v3 state for vm size types.
+	StandardD64V3 VMSizeTypes = "Standard_D64_v3"
+	// StandardD64sV3 specifies the standard d64sv3 state for vm size types.
+	StandardD64sV3 VMSizeTypes = "Standard_D64s_v3"
+	// StandardD8V3 specifies the standard d8v3 state for vm size types.
+	StandardD8V3 VMSizeTypes = "Standard_D8_v3"
+	// StandardD8sV3 specifies the standard d8sv3 state for vm size types.
+	StandardD8sV3 VMSizeTypes = "Standard_D8s_v3"
 	// StandardDS1 specifies the standard ds1 state for vm size types.
 	StandardDS1 VMSizeTypes = "Standard_DS1"
 	// StandardDS11 specifies the standard ds11 state for vm size types.
