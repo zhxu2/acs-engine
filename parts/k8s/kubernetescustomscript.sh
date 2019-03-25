@@ -51,20 +51,17 @@ else
     FULL_INSTALL_REQUIRED=true
 fi
 
-holdWALinuxAgent() {
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        wait_for_apt_locks
-        retrycmd_if_failure 120 5 25 apt-mark hold walinuxagent || exit $ERR_HOLD_WALINUXAGENT
-        wait_for_apt_locks
-    fi
-}
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    wait_for_apt_locks
+    retrycmd_if_failure 120 5 25 apt-mark hold walinuxagent || exit $ERR_HOLD_WALINUXAGENT
+    wait_for_apt_locks
+fi
 
 if [[ ! -z "${MASTER_NODE}" ]]; then
     installEtcd
 fi
 
 if $FULL_INSTALL_REQUIRED; then
-    holdWALinuxAgent
     installDeps
 else 
     echo "Golden image; skipping dependencies installation"
@@ -128,18 +125,6 @@ if [[ ! -z "${MASTER_NODE}" ]]; then
     ensurePodSecurityPolicy
 fi
 
-if $FULL_INSTALL_REQUIRED; then
-    if [[ $OS == $UBUNTU_OS_NAME ]]; then
-        # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635
-        echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
-        sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
-
-        wait_for_apt_locks
-        retrycmd_if_failure 120 5 25 apt-mark unhold walinuxagent || exit $ERR_RELEASE_HOLD_WALINUXAGENT
-        wait_for_apt_locks
-    fi
-fi
-
 echo "Custom script finished successfully"
 
 echo `date`,`hostname`, endcustomscript>>/opt/m
@@ -151,4 +136,14 @@ if $REBOOTREQUIRED; then
   /bin/bash -c "shutdown -r 1 &"
 else
   runAptDaily &
+fi
+
+if [[ $OS == $UBUNTU_OS_NAME ]]; then
+    # mitigation for bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1676635
+    echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind
+    sed -i "13i\echo 2dd1ce17-079e-403c-b352-a1921ee207ee > /sys/bus/vmbus/drivers/hv_util/unbind\n" /etc/rc.local
+
+    wait_for_apt_locks
+    retrycmd_if_failure 120 5 25 apt-mark unhold walinuxagent || exit $ERR_RELEASE_HOLD_WALINUXAGENT
+    wait_for_apt_locks
 fi
