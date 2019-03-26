@@ -36,11 +36,7 @@ if [[ $OS == $COREOS_OS_NAME ]]; then
     KUBECTL=/opt/kubectl
 fi
 
-if [ -f /var/run/reboot-required ]; then
-    REBOOTREQUIRED=true
-else
-    REBOOTREQUIRED=false
-fi
+REBOOTREQUIRED=false
 
 if [ -f /var/log/azure/golden-image-install.complete ]; then
     echo "detected golden image pre-install"
@@ -50,8 +46,6 @@ if [ -f /var/log/azure/golden-image-install.complete ]; then
 else
     FULL_INSTALL_REQUIRED=true
 fi
-
-FULL_INSTALL_REQUIRED=true
 
 holdWALinuxAgent() {
     if [[ $OS == $UBUNTU_OS_NAME ]]; then
