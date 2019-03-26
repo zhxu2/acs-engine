@@ -1,7 +1,13 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package api
 
 import (
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/Azure/acs-engine/pkg/api/common"
 	"github.com/Azure/acs-engine/pkg/api/v20170701"
@@ -85,8 +91,8 @@ func TestOrchestratorVersion(t *testing.T) {
 			},
 		},
 	}
-	cs := ConvertV20170701ContainerService(v20170701cs)
-	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.KubernetesDefaultVersion {
+	cs := ConvertV20170701ContainerService(v20170701cs, false)
+	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.GetDefaultKubernetesVersion(false) {
 		t.Fatalf("incorrect OrchestratorVersion '%s'", cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	}
 
@@ -94,12 +100,12 @@ func TestOrchestratorVersion(t *testing.T) {
 		Properties: &v20170701.Properties{
 			OrchestratorProfile: &v20170701.OrchestratorProfile{
 				OrchestratorType:    v20170701.Kubernetes,
-				OrchestratorVersion: common.KubernetesVersion1Dot6Dot11,
+				OrchestratorVersion: "1.7.14",
 			},
 		},
 	}
-	cs = ConvertV20170701ContainerService(v20170701cs)
-	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.KubernetesVersion1Dot6Dot11 {
+	cs = ConvertV20170701ContainerService(v20170701cs, true)
+	if cs.Properties.OrchestratorProfile.OrchestratorVersion != "1.7.14" {
 		t.Fatalf("incorrect OrchestratorVersion '%s'", cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	}
 	// test vlabs
@@ -110,8 +116,8 @@ func TestOrchestratorVersion(t *testing.T) {
 			},
 		},
 	}
-	cs = ConvertVLabsContainerService(vlabscs)
-	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.KubernetesDefaultVersion {
+	cs = ConvertVLabsContainerService(vlabscs, false)
+	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.GetDefaultKubernetesVersion(false) {
 		t.Fatalf("incorrect OrchestratorVersion '%s'", cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	}
 
@@ -119,12 +125,12 @@ func TestOrchestratorVersion(t *testing.T) {
 		Properties: &vlabs.Properties{
 			OrchestratorProfile: &vlabs.OrchestratorProfile{
 				OrchestratorType:    vlabs.Kubernetes,
-				OrchestratorVersion: common.KubernetesVersion1Dot6Dot11,
+				OrchestratorVersion: "1.7.15",
 			},
 		},
 	}
-	cs = ConvertVLabsContainerService(vlabscs)
-	if cs.Properties.OrchestratorProfile.OrchestratorVersion != common.KubernetesVersion1Dot6Dot11 {
+	cs = ConvertVLabsContainerService(vlabscs, false)
+	if cs.Properties.OrchestratorProfile.OrchestratorVersion != "1.7.15" {
 		t.Fatalf("incorrect OrchestratorVersion '%s'", cs.Properties.OrchestratorProfile.OrchestratorVersion)
 	}
 }
@@ -135,6 +141,9 @@ func TestKubernetesVlabsDefaults(t *testing.T) {
 	setVlabsKubernetesDefaults(vp, ap.OrchestratorProfile)
 	if ap.OrchestratorProfile.KubernetesConfig == nil {
 		t.Fatalf("KubernetesConfig cannot be nil after vlabs default conversion")
+	}
+	if ap.OrchestratorProfile.KubernetesConfig.NetworkPlugin != vlabs.DefaultNetworkPlugin {
+		t.Fatalf("vlabs defaults not applied, expected NetworkPlugin: %s, instead got: %s", vlabs.DefaultNetworkPlugin, ap.OrchestratorProfile.KubernetesConfig.NetworkPlugin)
 	}
 	if ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy != vlabs.DefaultNetworkPolicy {
 		t.Fatalf("vlabs defaults not applied, expected NetworkPolicy: %s, instead got: %s", vlabs.DefaultNetworkPolicy, ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy)
@@ -148,8 +157,91 @@ func TestKubernetesVlabsDefaults(t *testing.T) {
 	if ap.OrchestratorProfile.KubernetesConfig == nil {
 		t.Fatalf("KubernetesConfig cannot be nil after vlabs default conversion")
 	}
-	if ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy != vlabs.DefaultNetworkPolicyWindows {
-		t.Fatalf("vlabs defaults not applied, expected NetworkPolicy: %s, instead got: %s", vlabs.DefaultNetworkPolicyWindows, ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy)
+	if ap.OrchestratorProfile.KubernetesConfig.NetworkPlugin != vlabs.DefaultNetworkPluginWindows {
+		t.Fatalf("vlabs defaults not applied, expected NetworkPlugin: %s, instead got: %s", vlabs.DefaultNetworkPluginWindows, ap.OrchestratorProfile.KubernetesConfig.NetworkPlugin)
+	}
+	if ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy != vlabs.DefaultNetworkPolicy {
+		t.Fatalf("vlabs defaults not applied, expected NetworkPolicy: %s, instead got: %s", vlabs.DefaultNetworkPolicy, ap.OrchestratorProfile.KubernetesConfig.NetworkPolicy)
+	}
+}
+
+func TestConvertVLabsOrchestratorProfile(t *testing.T) {
+	tests := map[string]struct {
+		props  *vlabs.Properties
+		expect *OrchestratorProfile
+	}{
+		"nilOpenShiftConfig": {
+			props: &vlabs.Properties{
+				OrchestratorProfile: &vlabs.OrchestratorProfile{
+					OrchestratorType: OpenShift,
+				},
+			},
+			expect: &OrchestratorProfile{
+				OrchestratorType:    OpenShift,
+				OrchestratorVersion: common.OpenShiftDefaultVersion,
+			},
+		},
+		"setOpenShiftConfig": {
+			props: &vlabs.Properties{
+				OrchestratorProfile: &vlabs.OrchestratorProfile{
+					OrchestratorType: OpenShift,
+					OpenShiftConfig: &vlabs.OpenShiftConfig{
+						KubernetesConfig: &vlabs.KubernetesConfig{
+							NetworkPlugin:    "azure",
+							ContainerRuntime: "docker",
+						},
+					},
+				},
+			},
+			expect: &OrchestratorProfile{
+				OrchestratorType:    OpenShift,
+				OrchestratorVersion: common.OpenShiftDefaultVersion,
+				KubernetesConfig: &KubernetesConfig{
+					NetworkPlugin:    "azure",
+					ContainerRuntime: "docker",
+				},
+				OpenShiftConfig: &OpenShiftConfig{
+					KubernetesConfig: &KubernetesConfig{
+						NetworkPlugin:    "azure",
+						ContainerRuntime: "docker",
+					},
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Logf("running scenario %q", name)
+		actual := &OrchestratorProfile{}
+		convertVLabsOrchestratorProfile(test.props, actual, false)
+		if !equality.Semantic.DeepEqual(test.expect, actual) {
+			t.Errorf(spew.Sprintf("Expected:\n%+v\nGot:\n%+v", test.expect, actual))
+		}
+	}
+}
+
+func TestConvertVLabsKubernetesConfigProfile(t *testing.T) {
+	tests := map[string]struct {
+		props  *vlabs.KubernetesConfig
+		expect *KubernetesConfig
+	}{
+		"WindowsNodeBinariesURL": {
+			props: &vlabs.KubernetesConfig{
+				WindowsNodeBinariesURL: "http://test/test.tar.gz",
+			},
+			expect: &KubernetesConfig{
+				WindowsNodeBinariesURL: "http://test/test.tar.gz",
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Logf("running scenario %q", name)
+		actual := &KubernetesConfig{}
+		convertVLabsKubernetesConfig(test.props, actual)
+		if !equality.Semantic.DeepEqual(test.expect, actual) {
+			t.Errorf(spew.Sprintf("Expected:\n%+v\nGot:\n%+v", test.expect, actual))
+		}
 	}
 }
 
@@ -165,4 +257,26 @@ func makeKubernetesPropertiesVlabs() *vlabs.Properties {
 	vp.OrchestratorProfile = &vlabs.OrchestratorProfile{}
 	vp.OrchestratorProfile.OrchestratorType = "Kubernetes"
 	return vp
+}
+
+func TestConvertCustomFilesToAPI(t *testing.T) {
+	expectedAPICustomFiles := []CustomFile{
+		{
+			Source: "/test/source",
+			Dest:   "/test/dest",
+		},
+	}
+	masterProfile := MasterProfile{}
+
+	vp := &vlabs.MasterProfile{}
+	vp.CustomFiles = &[]vlabs.CustomFile{
+		{
+			Source: "/test/source",
+			Dest:   "/test/dest",
+		},
+	}
+	convertCustomFilesToAPI(vp, &masterProfile)
+	if !equality.Semantic.DeepEqual(&expectedAPICustomFiles, masterProfile.CustomFiles) {
+		t.Fatalf("convertCustomFilesToApi conversion of vlabs.MasterProfile did not convert correctly")
+	}
 }

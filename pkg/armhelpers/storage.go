@@ -1,7 +1,13 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package armhelpers
 
 import (
-	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"bytes"
+	"context"
+
+	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2018-02-01/storage"
 	azStorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -12,8 +18,8 @@ type AzureStorageClient struct {
 }
 
 // GetStorageClient returns an authenticated client for the specified account.
-func (az *AzureClient) GetStorageClient(resourceGroup, accountName string) (ACSStorageClient, error) {
-	keys, err := az.getStorageKeys(resourceGroup, accountName)
+func (az *AzureClient) GetStorageClient(ctx context.Context, resourceGroup, accountName string) (ACSStorageClient, error) {
+	keys, err := az.getStorageKeys(ctx, resourceGroup, accountName)
 	if err != nil {
 		return nil, err
 	}
@@ -28,8 +34,8 @@ func (az *AzureClient) GetStorageClient(resourceGroup, accountName string) (ACSS
 	}, nil
 }
 
-func (az *AzureClient) getStorageKeys(resourceGroup, accountName string) ([]storage.AccountKey, error) {
-	storageKeysResult, err := az.storageAccountsClient.ListKeys(resourceGroup, accountName)
+func (az *AzureClient) getStorageKeys(ctx context.Context, resourceGroup, accountName string) ([]storage.AccountKey, error) {
+	storageKeysResult, err := az.storageAccountsClient.ListKeys(ctx, resourceGroup, accountName)
 	if err != nil {
 		return nil, err
 	}
@@ -40,10 +46,30 @@ func (az *AzureClient) getStorageKeys(resourceGroup, accountName string) ([]stor
 // DeleteBlob deletes the specified blob
 // TODO(colemick): why doesn't SDK give a way to just delete a blob by URI?
 // it's what it ends up doing internally anyway...
-func (as *AzureStorageClient) DeleteBlob(vhdContainer, vhdBlob string) error {
-	bs := as.client.GetBlobService()
-	containerRef := bs.GetContainerReference(vhdContainer)
+func (as *AzureStorageClient) DeleteBlob(vhdContainer, vhdBlob string, options *azStorage.DeleteBlobOptions) error {
+	containerRef := getContainerRef(as.client, vhdContainer)
 	blobRef := containerRef.GetBlobReference(vhdBlob)
 
-	return blobRef.Delete(&azStorage.DeleteBlobOptions{})
+	return blobRef.Delete(options)
+}
+
+// CreateContainer creates the CloudBlobContainer if it does not exist
+func (as *AzureStorageClient) CreateContainer(containerName string, options *azStorage.CreateContainerOptions) (bool, error) {
+	containerRef := getContainerRef(as.client, containerName)
+	created, err := containerRef.CreateIfNotExists(options)
+
+	return created, err
+}
+
+// SaveBlockBlob initializes a block blob by taking the byte
+func (as *AzureStorageClient) SaveBlockBlob(containerName, blobName string, b []byte, options *azStorage.PutBlobOptions) error {
+	containerRef := getContainerRef(as.client, containerName)
+	blobRef := containerRef.GetBlobReference(blobName)
+
+	return blobRef.CreateBlockBlobFromReader(bytes.NewReader(b), options)
+}
+
+func getContainerRef(client *azStorage.Client, containerName string) *azStorage.Container {
+	bs := client.GetBlobService()
+	return bs.GetContainerReference(containerName)
 }

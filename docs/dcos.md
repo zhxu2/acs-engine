@@ -1,5 +1,8 @@
 # Microsoft Azure Container Service Engine - DC/OS Walkthrough
 
+### `Note:`
+Support for DC/OS `1.11` and later continues in the forked project [dcos-engine](https://github.com/Azure/dcos-engine).
+
 ## Deployment
 
 Here are the steps to deploy a simple DC/OS cluster:
@@ -26,10 +29,10 @@ The following image shows the architecture of a container service cluster with 3
 
 In the image above, you can see the following parts:
 
-1. **Admin Router on port 80** - The admin router enables you to access all DC/OS services.  For example, if you create an SSH tunnel to port 80 you can access the services on the following urls, you can see the DC/OS dashboard by browing to <http://localhost/>
+1. **Admin Router on port 80** - The admin router enables you to access all DC/OS services.  For example, if you create an SSH tunnel to port 80 you can access the services on the following urls, you can see the DC/OS dashboard by browsing to <http://localhost/>
 2. **Masters** - Masters run the DC/OS processes that schedule and manage workloads on the agent nodes.
-3. **Public Agents** - Public agents, deployed in a VM scale set, are publically accessible through the Azure Load Balancer to ports 80, 443, and 8080.  Jobs can be assigned to public agents using role `slave_public`.
-4. **Private Agents** - Private agents, deployed in a VM scale set, are not publically accessible.  Workloads are scheduled to private agents by default.
+3. **Public Agents** - Public agents, deployed in a VM scale set, are publicly accessible through the Azure Load Balancer to ports 80, 443, and 8080.  Jobs can be assigned to public agents using role `slave_public`.
+4. **Private Agents** - Private agents, deployed in a VM scale set, are not publicly accessible.  Workloads are scheduled to private agents by default.
 5. **Docker on port 2375** - The Docker engine runs containerized workloads and each Agent runs the Docker engine.  DC/OS runs Docker workloads, and examples on how to do this are provided in the Marathon walkthrough sections of this readme.
 
 All VMs are in the same VNET where the masters are on private subnet 172.16.0.0/24 and the agents are on the private subnet, 10.0.0.0/8, and fully accessible to each other.
@@ -41,7 +44,7 @@ This walk through is inspired by the wonderful digital ocean tutorial: https://w
  * deploy a simple hello-world app,
  * deploy a simple docker app,
  * look at logs of your workload,
- * and deploy a simple web app publically available to the world.
+ * and deploy a simple web app publicly available to the world.
 
 
  1. After successfully deploying the template write down the two output master and agent FQDNs (Fully Qualified Domain Name).
@@ -114,6 +117,22 @@ This walk through is inspired by the wonderful digital ocean tutorial: https://w
   14. Finally click deploy and watch the web app deploy.  Once it goes to running state, open the FQDN retrieved in step 1 during deployment, and you will see the web app.
 
   ![Image of web app](images/simpleweb.png)
+
+# DCOS upgrade
+
+Starting from DC/OS 1.11, acs-engine deploys a bootstrap node as part of DC/OS cluster. This enables upgrade operation on an existing cluster.
+
+To start the upgrade, run this following command:
+```
+acs-engine dcos-upgrade \
+    --subscription-id <Azure subscription ID> \
+    --resource-group <the resource group the cluster was deployed in> \
+    --location <the region the clusetr was deployed in> \
+    --upgrade-version <desired DC/OS version> \
+    --deployment-dir <deployment directory produced by "acs-engine generate"> \
+    --ssh-private-key-path <path to ssh private key used in deployment>
+```
+The upgrade is an idempotent operation. If failed, it could be re-run and will pick the execution from the last successful checkpoint.
 
 # Learning More
 

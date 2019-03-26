@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package v20170831
 
 import "encoding/json"
@@ -34,7 +37,7 @@ type Properties struct {
 	DNSPrefix               string                   `json:"dnsPrefix" validate:"required"`
 	FQDN                    string                   `json:"fqdn,omitempty"`
 	AgentPoolProfiles       []*AgentPoolProfile      `json:"agentPoolProfiles,omitempty" validate:"dive,required"`
-	LinuxProfile            *LinuxProfile            `json:"linuxProfile,omitempty" validate:"required"`
+	LinuxProfile            *LinuxProfile            `json:"linuxProfile,omitempty"`
 	WindowsProfile          *WindowsProfile          `json:"windowsProfile,omitempty"`
 	ServicePrincipalProfile *ServicePrincipalProfile `json:"servicePrincipalProfile,omitempty"`
 	AccessProfiles          map[string]AccessProfile `json:"accessProfiles,omitempty"`
@@ -63,7 +66,7 @@ type ManagedClusterAccessProfile struct {
 //    <VERSION> (optional) is the version of the secret (default: the latest version)
 type ServicePrincipalProfile struct {
 	ClientID string `json:"clientId,omitempty" validate:"required"`
-	Secret   string `json:"secret,omitempty"`
+	Secret   string `json:"secret,omitempty" conform:"redact"`
 }
 
 // LinuxProfile represents the Linux configuration passed to the cluster
@@ -83,7 +86,7 @@ type PublicKey struct {
 // WindowsProfile represents the Windows configuration passed to the cluster
 type WindowsProfile struct {
 	AdminUsername string `json:"adminUsername,omitempty" validate:"required"`
-	AdminPassword string `json:"adminPassword,omitempty"`
+	AdminPassword string `json:"adminPassword,omitempty" conform:"redact"`
 }
 
 // ProvisioningState represents the current state of container service resource.

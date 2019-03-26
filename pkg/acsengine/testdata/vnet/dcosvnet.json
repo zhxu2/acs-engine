@@ -2,14 +2,19 @@
   "apiVersion": "vlabs",
   "properties": {
     "orchestratorProfile": {
-      "orchestratorType": "DCOS"
+      "orchestratorType": "DCOS",
+      "dcosConfig": {
+        "bootstrapProfile": {
+          "staticIP": "10.100.0.240"
+        }
+      }
     },
     "masterProfile": {
       "count": 3,
       "dnsPrefix": "masterdns1",
       "vmSize": "Standard_D2_v2",
       "vnetSubnetId": "/subscriptions/SUBSCRIPTION/resourceGroups/ExampleRG/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/ExampleMasterSubnet",
-      "firstConsecutiveStaticIP": "10.100.0.5" 
+      "firstConsecutiveStaticIP": "10.100.0.5"
     },
     "agentPoolProfiles": [
       {

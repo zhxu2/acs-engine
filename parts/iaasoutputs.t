@@ -2,6 +2,10 @@
         "type": "string",
         "value": "[variables('resourceGroup')]"
     },
+    "vnetResourceGroup": {
+        "type": "string",
+        "value": "[variables('virtualNetworkResourceGroupName')]"
+    },
     "subnetName": {
         "type": "string",
         "value": "[variables('subnetName')]"
@@ -21,4 +25,9 @@
     "primaryAvailabilitySetName": {
         "type": "string",
         "value": "[variables('primaryAvailabilitySetName')]"
+    },
+    "primaryScaleSetName": {
+        "type": "string",
+        "value": "[variables('primaryScaleSetName')]"
     }
+

@@ -22,8 +22,7 @@
         "name": "agentpool2",
         "count": 1,
         "vmSize": "Standard_D3_v2",
-        "availabilityProfile": "AvailabilitySet",
-        "osType": "Windows"
+        "availabilityProfile": "AvailabilitySet"
       }
     ],
     "windowsProfile": {

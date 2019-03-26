@@ -1,14 +1,17 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package storageclass
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os/exec"
 	"time"
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
+	"github.com/pkg/errors"
 )
 
 // StorageClass is used to parse data from kubectl get storageclass
@@ -72,7 +75,7 @@ func (sc *StorageClass) WaitOnReady(sleep, duration time.Duration) (bool, error)
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for StorageClass (%s) to become ready", duration.String(), sc.Metadata.Name)
+				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for StorageClass (%s) to become ready", duration.String(), sc.Metadata.Name)
 			default:
 				query, _ := Get(sc.Metadata.Name)
 				if query != nil {

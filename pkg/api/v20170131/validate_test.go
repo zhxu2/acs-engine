@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package v20170131
 
 import "testing"
@@ -5,6 +8,7 @@ import "testing"
 func Test_ServicePrincipalProfile_ValidateSecret(t *testing.T) {
 
 	t.Run("ServicePrincipalProfile is nil should fail", func(t *testing.T) {
+		t.Parallel()
 		p := getK8sDefaultProperties()
 		p.ServicePrincipalProfile = nil
 
@@ -14,6 +18,7 @@ func Test_ServicePrincipalProfile_ValidateSecret(t *testing.T) {
 	})
 
 	t.Run("ServicePrincipalProfile with secret should pass", func(t *testing.T) {
+		t.Parallel()
 		p := getK8sDefaultProperties()
 
 		if err := p.Validate(); err != nil {
@@ -22,6 +27,7 @@ func Test_ServicePrincipalProfile_ValidateSecret(t *testing.T) {
 	})
 
 	t.Run("ServicePrincipalProfile with missing secret should pass", func(t *testing.T) {
+		t.Parallel()
 		p := getK8sDefaultProperties()
 		p.ServicePrincipalProfile.Secret = ""
 

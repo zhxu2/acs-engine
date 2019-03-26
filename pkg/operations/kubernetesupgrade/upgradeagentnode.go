@@ -1,17 +1,21 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package kubernetesupgrade
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
-
-	"k8s.io/client-go/pkg/api/v1/node"
 
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/Azure/acs-engine/pkg/operations"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -29,6 +33,7 @@ type UpgradeAgentNode struct {
 	TemplateMap             map[string]interface{}
 	ParametersMap           map[string]interface{}
 	UpgradeContainerService *api.ContainerService
+	SubscriptionID          string
 	ResourceGroup           string
 	Client                  armhelpers.ACSEngineClient
 	kubeConfig              string
@@ -40,32 +45,45 @@ type UpgradeAgentNode struct {
 // the node
 // The 'drain' flag is used to invoke 'cordon and drain' flow.
 func (kan *UpgradeAgentNode) DeleteNode(vmName *string, drain bool) error {
+	var kubeAPIServerURL string
+
+	if kan.UpgradeContainerService.Properties.HostedMasterProfile != nil {
+		kubeAPIServerURL = kan.UpgradeContainerService.Properties.HostedMasterProfile.FQDN
+	} else {
+		kubeAPIServerURL = kan.UpgradeContainerService.Properties.MasterProfile.FQDN
+	}
+
+	client, err := kan.Client.GetKubernetesClient(kubeAPIServerURL, kan.kubeConfig, interval, kan.timeout)
+	if err != nil {
+		return err
+	}
+	// Cordon and drain the node
 	if drain {
-		var kubeAPIServerURL string
-
-		if kan.UpgradeContainerService.Properties.HostedMasterProfile != nil {
-			kubeAPIServerURL = kan.UpgradeContainerService.Properties.HostedMasterProfile.FQDN
-		} else {
-			kubeAPIServerURL = kan.UpgradeContainerService.Properties.MasterProfile.FQDN
-		}
-
-		err := operations.SafelyDrainNode(kan.Client, kan.logger, kubeAPIServerURL, kan.kubeConfig, *vmName, time.Minute)
+		err := operations.SafelyDrainNodeWithClient(client, kan.logger, *vmName, time.Minute)
 		if err != nil {
 			kan.logger.Warningf("Error draining agent VM %s. Proceeding with deletion. Error: %v", *vmName, err)
 			// Proceed with deletion anyways
 		}
 	}
-	if err := operations.CleanDeleteVirtualMachine(kan.Client, kan.logger, kan.ResourceGroup, *vmName); err != nil {
+	// Delete VM in ARM
+	if err := operations.CleanDeleteVirtualMachine(kan.Client, kan.logger, kan.SubscriptionID, kan.ResourceGroup, *vmName); err != nil {
 		return err
+	}
+	// Delete VM in api server
+	if err = client.DeleteNode(*vmName); err != nil {
+		statusErr, ok := err.(*errors.StatusError)
+		if ok && statusErr.ErrStatus.Reason != v1.StatusReasonNotFound {
+			kan.logger.Warnf("Node %s got an error while deregistering: %#v", *vmName, err)
+		}
 	}
 	return nil
 }
 
 // CreateNode creates a new master/agent node with the targeted version of Kubernetes
-func (kan *UpgradeAgentNode) CreateNode(poolName string, agentNo int) error {
+func (kan *UpgradeAgentNode) CreateNode(ctx context.Context, poolName string, agentNo int) error {
 	poolCountParameter := kan.ParametersMap[poolName+"Count"].(map[string]interface{})
 	poolCountParameter["value"] = agentNo + 1
-	agentCount, _ := poolCountParameter["value"]
+	agentCount := poolCountParameter["value"]
 	kan.logger.Infof("Agent pool: %s, set count to: %d temporarily during upgrade. Upgrading agent: %d",
 		poolName, agentCount, agentNo)
 
@@ -114,7 +132,7 @@ func (kan *UpgradeAgentNode) Validate(vmName *string) error {
 			if err != nil {
 				kan.logger.Infof("Agent VM: %s status error: %v", *vmName, err)
 				retryTimer.Reset(retry)
-			} else if node.IsNodeReady(agentNode) {
+			} else if isNodeReady(agentNode) {
 				kan.logger.Infof("Agent VM: %s is ready", *vmName)
 				timeoutTimer.Stop()
 				return nil

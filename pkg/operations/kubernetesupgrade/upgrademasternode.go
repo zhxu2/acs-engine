@@ -1,16 +1,19 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package kubernetesupgrade
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
-
-	"k8s.io/client-go/pkg/api/v1/node"
 
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/Azure/acs-engine/pkg/operations"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,6 +27,7 @@ type UpgradeMasterNode struct {
 	TemplateMap             map[string]interface{}
 	ParametersMap           map[string]interface{}
 	UpgradeContainerService *api.ContainerService
+	SubscriptionID          string
 	ResourceGroup           string
 	Client                  armhelpers.ACSEngineClient
 	kubeConfig              string
@@ -35,23 +39,19 @@ type UpgradeMasterNode struct {
 // the node.
 // The 'drain' flag is not used for deleting master nodes.
 func (kmn *UpgradeMasterNode) DeleteNode(vmName *string, drain bool) error {
-	if err := operations.CleanDeleteVirtualMachine(kmn.Client, kmn.logger, kmn.ResourceGroup, *vmName); err != nil {
-		return err
-	}
-
-	return nil
+	return operations.CleanDeleteVirtualMachine(kmn.Client, kmn.logger, kmn.SubscriptionID, kmn.ResourceGroup, *vmName)
 }
 
 // CreateNode creates a new master/agent node with the targeted version of Kubernetes
-func (kmn *UpgradeMasterNode) CreateNode(poolName string, masterNo int) error {
+func (kmn *UpgradeMasterNode) CreateNode(ctx context.Context, poolName string, masterNo int) error {
 	templateVariables := kmn.TemplateMap["variables"].(map[string]interface{})
 
 	templateVariables["masterOffset"] = masterNo
-	masterOffsetVar, _ := templateVariables["masterOffset"]
+	masterOffsetVar := templateVariables["masterOffset"]
 	kmn.logger.Infof("Master offset: %v\n", masterOffsetVar)
 
 	templateVariables["masterCount"] = masterNo + 1
-	masterOffset, _ := templateVariables["masterCount"]
+	masterOffset := templateVariables["masterCount"]
 	kmn.logger.Infof("Master pool set count to: %v temporarily during upgrade...\n", masterOffset)
 
 	// Debug function - keep commented out
@@ -62,17 +62,12 @@ func (kmn *UpgradeMasterNode) CreateNode(poolName string, masterNo int) error {
 	deploymentName := fmt.Sprintf("master-%s-%d", time.Now().Format("06-01-02T15.04.05"), deploymentSuffix)
 
 	_, err := kmn.Client.DeployTemplate(
+		ctx,
 		kmn.ResourceGroup,
 		deploymentName,
 		kmn.TemplateMap,
-		kmn.ParametersMap,
-		nil)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+		kmn.ParametersMap)
+	return err
 }
 
 // Validate will verify the that master node has been upgraded as expected.
@@ -101,7 +96,7 @@ func (kmn *UpgradeMasterNode) Validate(vmName *string) error {
 			if err != nil {
 				kmn.logger.Infof("Master VM: %s status error: %v\n", *vmName, err)
 				time.Sleep(time.Second * 5)
-			} else if node.IsNodeReady(masterNode) {
+			} else if isNodeReady(masterNode) {
 				kmn.logger.Infof("Master VM: %s is ready", *vmName)
 				ch <- struct{}{}
 			} else {
@@ -117,7 +112,7 @@ func (kmn *UpgradeMasterNode) Validate(vmName *string) error {
 			return nil
 		case <-time.After(kmn.timeout):
 			kmn.logger.Errorf("Node was not ready within %v", kmn.timeout)
-			return fmt.Errorf("Node was not ready within %v", kmn.timeout)
+			return errors.Errorf("Node was not ready within %v", kmn.timeout)
 		}
 	}
 }
