@@ -377,8 +377,10 @@ func (t *TemplateGenerator) getTemplateFuncMap(cs *api.ContainerService) templat
 			return ""
 		},
 		"UseAksExtension": func() bool {
-			cloudSpecConfig := cs.GetCloudSpecConfig()
-			return cloudSpecConfig.CloudName == api.AzurePublicCloud
+			//cloudSpecConfig := cs.GetCloudSpecConfig()
+			//return cloudSpecConfig.CloudName == api.AzurePublicCloud
+			// ACI: This extension puts us over the ARM resource limit
+			return false
 		},
 		"IsMooncake": func() bool {
 			cloudSpecConfig := cs.GetCloudSpecConfig()
