@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package acsengine
 
 import (
@@ -9,6 +6,9 @@ import (
 	"github.com/Azure/acs-engine/pkg/api/vlabs"
 	"github.com/Azure/acs-engine/pkg/i18n"
 )
+
+// DCOSNodeType represents the type of DCOS Node
+type DCOSNodeType string
 
 // VlabsContainerService is the type we read and write from file
 // needed because the json that is sent to ARM and acs-engine
@@ -36,13 +36,8 @@ type DockerSpecConfig struct {
 type DCOSSpecConfig struct {
 	DCOS188BootstrapDownloadURL     string
 	DCOS190BootstrapDownloadURL     string
-	DCOS198BootstrapDownloadURL     string
 	DCOS110BootstrapDownloadURL     string
-	DCOS111BootstrapDownloadURL     string
 	DCOSWindowsBootstrapDownloadURL string
-	DcosRepositoryURL               string // For custom install, for example CI, need these three addributes
-	DcosClusterPackageListID        string // the id of the package list file
-	DcosProviderPackageID           string // the id of the dcos-provider-xxx package
 }
 
 //KubernetesSpecConfig is the kubernetes container images used.
@@ -50,15 +45,13 @@ type KubernetesSpecConfig struct {
 	KubernetesImageBase              string
 	TillerImageBase                  string
 	ACIConnectorImageBase            string
-	NVIDIAImageBase                  string
-	AzureCNIImageBase                string
 	EtcdDownloadURLBase              string
 	KubeBinariesSASURLBase           string
+	WindowsPackageSASURLBase         string
 	WindowsTelemetryGUID             string
 	CNIPluginsDownloadURL            string
 	VnetCNILinuxPluginsDownloadURL   string
 	VnetCNIWindowsPluginsDownloadURL string
-	ContainerdDownloadURLBase        string
 }
 
 //AzureEndpointConfig describes an Azure endpoint
@@ -74,21 +67,16 @@ type AzureOSImageConfig struct {
 	ImageVersion   string
 }
 
+//AzureEnvironmentSpecConfig is the overall configuration differences in different cloud environments.
+type AzureEnvironmentSpecConfig struct {
+	DockerSpecConfig     DockerSpecConfig
+	KubernetesSpecConfig KubernetesSpecConfig
+	DCOSSpecConfig       DCOSSpecConfig
+	EndpointConfig       AzureEndpointConfig
+	OSImageConfig        map[api.Distro]AzureOSImageConfig
+}
+
 // Context represents the object that is passed to the package
 type Context struct {
 	Translator *i18n.Translator
 }
-
-// KeyVaultID represents a KeyVault instance on Azure
-type KeyVaultID struct {
-	ID string `json:"id"`
-}
-
-// KeyVaultRef represents a reference to KeyVault instance on Azure
-type KeyVaultRef struct {
-	KeyVault      KeyVaultID `json:"keyVault"`
-	SecretName    string     `json:"secretName"`
-	SecretVersion string     `json:"secretVersion,omitempty"`
-}
-
-type paramsMap map[string]interface{}

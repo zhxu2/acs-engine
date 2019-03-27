@@ -19,18 +19,11 @@ There are several ways to create a Service Principal in Azure Active Directory:
 
 * **With the [Azure CLI](https://github.com/Azure/azure-cli)**
 
-  * Subscription level scope
-     ```shell
-     az login
-     az account set --subscription="${SUBSCRIPTION_ID}"
-     az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/${SUBSCRIPTION_ID}"
-     ```
-  * Resource group level scope
-     ```shell
-     az login
-     az account set --subscription="${SUBSCRIPTION_ID}"
-     az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}"
-     ```
+   ```shell
+   az login
+   az account set --subscription="${SUBSCRIPTION_ID}"
+   az ad sp create-for-rbac --role="Contributor" --scopes="/subscriptions/${SUBSCRIPTION_ID}"
+   ```
 
    This will output your `appId`, `password`, `name`, and `tenant`.  The `name` or `appId` may be used for the `servicePrincipalProfile.clientId` and the `password` is used for `servicePrincipalProfile.secret`.
 

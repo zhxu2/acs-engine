@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package engine
 
 import (
@@ -17,14 +14,12 @@ import (
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/Azure/acs-engine/test/e2e/config"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 )
 
 // Config represents the configuration values of a template stored as env vars
 type Config struct {
 	ClientID              string `envconfig:"CLIENT_ID"`
 	ClientSecret          string `envconfig:"CLIENT_SECRET"`
-	ClientObjectID        string `envconfig:"CLIENT_OBJECTID"`
 	MasterDNSPrefix       string `envconfig:"DNS_PREFIX"`
 	AgentDNSPrefix        string `envconfig:"DNS_PREFIX"`
 	PublicSSHKey          string `envconfig:"PUBLIC_SSH_KEY"`
@@ -33,23 +28,17 @@ type Config struct {
 	OrchestratorVersion   string `envconfig:"ORCHESTRATOR_VERSION"`
 	OutputDirectory       string `envconfig:"OUTPUT_DIR" default:"_output"`
 	CreateVNET            bool   `envconfig:"CREATE_VNET" default:"false"`
-	EnableKMSEncryption   bool   `envconfig:"ENABLE_KMS_ENCRYPTION" default:"false"`
-	Distro                string `envconfig:"DISTRO"`
-	SubscriptionID        string `envconfig:"SUBSCRIPTION_ID"`
-	TenantID              string `envconfig:"TENANT_ID"`
-	ImageName             string `envconfig:"IMAGE_NAME"`
-	ImageResourceGroup    string `envconfig:"IMAGE_RESOURCE_GROUP"`
 
 	ClusterDefinitionPath     string // The original template we want to use to build the cluster from.
 	ClusterDefinitionTemplate string // This is the template after we splice in the environment variables
-	GeneratedDefinitionPath   string // Holds the contents of running aks-engine generate
+	GeneratedDefinitionPath   string // Holds the contents of running acs-engine generate
 	OutputPath                string // This is the root output path
 	DefinitionName            string // Unique cluster name
 	GeneratedTemplatePath     string // azuredeploy.json path
 	GeneratedParametersPath   string // azuredeploy.parameters.json path
 }
 
-// Engine holds necessary information to interact with aks-engine cli
+// Engine holds necessary information to interact with acs-engine cli
 type Engine struct {
 	Config             *Config
 	ClusterDefinition  *api.VlabsARMContainerService // Holds the parsed ClusterDefinition
@@ -77,7 +66,7 @@ func ParseConfig(cwd, clusterDefinition, name string) (*Config, error) {
 
 // Build takes a template path and will inject values based on provided environment variables
 // it will then serialize the structs back into json and save it to outputPath
-func Build(cfg *config.Config, masterSubnetID string, agentSubnetID string, isVMSS bool) (*Engine, error) {
+func Build(cfg *config.Config, subnetID string) (*Engine, error) {
 	config, err := ParseConfig(cfg.CurrentWorkingDir, cfg.ClusterDefinition, cfg.Name)
 	if err != nil {
 		log.Printf("Error while trying to build Engine Configuration:%s\n", err)
@@ -87,74 +76,52 @@ func Build(cfg *config.Config, masterSubnetID string, agentSubnetID string, isVM
 	if err != nil {
 		return nil, err
 	}
-	prop := cs.ContainerService.Properties
 
 	if config.ClientID != "" && config.ClientSecret != "" {
-		prop.ServicePrincipalProfile = &vlabs.ServicePrincipalProfile{
+		cs.ContainerService.Properties.ServicePrincipalProfile = &vlabs.ServicePrincipalProfile{
 			ClientID: config.ClientID,
 			Secret:   config.ClientSecret,
 		}
 	}
 
 	if config.MasterDNSPrefix != "" {
-		prop.MasterProfile.DNSPrefix = config.MasterDNSPrefix
+		cs.ContainerService.Properties.MasterProfile.DNSPrefix = config.MasterDNSPrefix
 	}
 
 	if !cfg.IsKubernetes() && config.AgentDNSPrefix != "" {
-		for idx, pool := range prop.AgentPoolProfiles {
+		for idx, pool := range cs.ContainerService.Properties.AgentPoolProfiles {
 			pool.DNSPrefix = fmt.Sprintf("%v-%v", config.AgentDNSPrefix, idx)
 		}
 	}
 
-	if prop.LinuxProfile != nil {
-		if config.PublicSSHKey != "" {
-			prop.LinuxProfile.SSH.PublicKeys[0].KeyData = config.PublicSSHKey
-			if prop.OrchestratorProfile.KubernetesConfig != nil && prop.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil && prop.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile != nil {
-				prop.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile.PublicKey = config.PublicSSHKey
-			}
-		}
+	if config.PublicSSHKey != "" {
+		cs.ContainerService.Properties.LinuxProfile.SSH.PublicKeys[0].KeyData = config.PublicSSHKey
 	}
 
 	if config.WindowsAdminPasssword != "" {
-		prop.WindowsProfile.AdminPassword = config.WindowsAdminPasssword
+		cs.ContainerService.Properties.WindowsProfile.AdminPassword = config.WindowsAdminPasssword
 	}
 
 	// If the parsed api model input has no expressed version opinion, we check if ENV does have an opinion
-	if prop.OrchestratorProfile.OrchestratorRelease == "" &&
-		prop.OrchestratorProfile.OrchestratorVersion == "" {
+	if cs.ContainerService.Properties.OrchestratorProfile.OrchestratorRelease == "" &&
+		cs.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion == "" {
 		// First, prefer the release string if ENV declares it
 		if config.OrchestratorRelease != "" {
-			prop.OrchestratorProfile.OrchestratorRelease = config.OrchestratorRelease
+			cs.ContainerService.Properties.OrchestratorProfile.OrchestratorRelease = config.OrchestratorRelease
 			// Or, choose the version string if ENV declares it
 		} else if config.OrchestratorVersion != "" {
-			prop.OrchestratorProfile.OrchestratorVersion = config.OrchestratorVersion
-			// If ENV similarly has no version opinion, we will rely upon the aks-engine default
+			cs.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = config.OrchestratorVersion
+			// If ENV similarly has no version opinion, we will rely upon the acs-engine default
 		} else {
 			log.Println("No orchestrator version specified, will use the default.")
 		}
 	}
 
 	if config.CreateVNET {
-		if isVMSS {
-			prop.MasterProfile.VnetSubnetID = masterSubnetID
-			prop.MasterProfile.AgentVnetSubnetID = agentSubnetID
-			for _, p := range prop.AgentPoolProfiles {
-				p.VnetSubnetID = agentSubnetID
-			}
-		} else {
-			prop.MasterProfile.VnetSubnetID = masterSubnetID
-			for _, p := range prop.AgentPoolProfiles {
-				p.VnetSubnetID = masterSubnetID
-			}
+		cs.ContainerService.Properties.MasterProfile.VnetSubnetID = subnetID
+		for _, p := range cs.ContainerService.Properties.AgentPoolProfiles {
+			p.VnetSubnetID = subnetID
 		}
-	}
-
-	if config.EnableKMSEncryption && config.ClientObjectID != "" {
-		if prop.OrchestratorProfile.KubernetesConfig == nil {
-			prop.OrchestratorProfile.KubernetesConfig = &vlabs.KubernetesConfig{}
-		}
-		prop.OrchestratorProfile.KubernetesConfig.EnableEncryptionWithExternalKms = &config.EnableKMSEncryption
-		prop.ServicePrincipalProfile.ObjectID = config.ClientObjectID
 	}
 
 	return &Engine{
@@ -165,8 +132,8 @@ func Build(cfg *config.Config, masterSubnetID string, agentSubnetID string, isVM
 
 // NodeCount returns the number of nodes that should be provisioned for a given cluster definition
 func (e *Engine) NodeCount() int {
-	expectedCount := e.ExpandedDefinition.Properties.MasterProfile.Count
-	for _, pool := range e.ExpandedDefinition.Properties.AgentPoolProfiles {
+	expectedCount := e.ClusterDefinition.Properties.MasterProfile.Count
+	for _, pool := range e.ClusterDefinition.Properties.AgentPoolProfiles {
 		expectedCount = expectedCount + pool.Count
 	}
 	return expectedCount
@@ -192,44 +159,29 @@ func (e *Engine) HasWindowsAgents() bool {
 	return false
 }
 
-// WindowsTestImages holds the Windows container image names used in this test pass
-type WindowsTestImages struct {
-	IIS        string
-	ServerCore string
-}
-
-// GetWindowsTestImages will return the right list of container images for the Windows version used
-func (e *Engine) GetWindowsTestImages() (*WindowsTestImages, error) {
-	if !e.HasWindowsAgents() {
-		return nil, errors.New("Can't guess a Windows version without Windows nodes in the cluster")
+// HasGPUNodes will return true if the VM SKU is GPU-enabled
+func (e *Engine) HasGPUNodes() bool {
+	for _, ap := range e.ExpandedDefinition.Properties.AgentPoolProfiles {
+		if strings.Contains(ap.VMSize, "Standard_N") {
+			return true
+		}
 	}
-
-	if strings.Contains(e.ExpandedDefinition.Properties.WindowsProfile.GetWindowsSku(), "1809") || strings.Contains(e.ExpandedDefinition.Properties.WindowsProfile.GetWindowsSku(), "2019") {
-		return &WindowsTestImages{IIS: "mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019",
-			ServerCore: "mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019"}, nil
-	} else if strings.Contains(e.ExpandedDefinition.Properties.WindowsProfile.GetWindowsSku(), "1803") {
-		return &WindowsTestImages{IIS: "microsoft/iis:windowsservercore-1803",
-			ServerCore: "microsoft/iis:windowsservercore-1803"}, nil
-	} else if strings.Contains(e.ExpandedDefinition.Properties.WindowsProfile.GetWindowsSku(), "1709") {
-		return nil, errors.New("Windows Server version 1709 hasn't been tested in a long time and is deprecated")
-	}
-
-	return nil, errors.New("Unknown Windows version. GetWindowsSku() = " + e.ExpandedDefinition.Properties.WindowsProfile.GetWindowsSku())
+	return false
 }
 
 // HasAddon will return true if an addon is enabled
 func (e *Engine) HasAddon(name string) (bool, api.KubernetesAddon) {
 	for _, addon := range e.ExpandedDefinition.Properties.OrchestratorProfile.KubernetesConfig.Addons {
 		if addon.Name == name {
-			return helpers.IsTrueBoolPointer(addon.Enabled), addon
+			return *addon.Enabled, addon
 		}
 	}
 	return false, api.KubernetesAddon{}
 }
 
-// HasNetworkPolicy will return true if the specified network policy is enabled
-func (e *Engine) HasNetworkPolicy(name string) bool {
-	return strings.Contains(e.ExpandedDefinition.Properties.OrchestratorProfile.KubernetesConfig.NetworkPolicy, name)
+// OrchestratorVersion1Dot8AndUp will return true if the orchestrator version is 1.8 and up
+func (e *Engine) OrchestratorVersion1Dot8AndUp() bool {
+	return e.ClusterDefinition.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion >= "1.8"
 }
 
 // Write will write the cluster definition to disk
@@ -266,7 +218,7 @@ func ParseInput(path string) (*api.VlabsARMContainerService, error) {
 func ParseOutput(path string) (*api.ContainerService, error) {
 	locale, err := i18n.LoadTranslations()
 	if err != nil {
-		return nil, errors.Errorf(fmt.Sprintf("error loading translation files: %s", err.Error()))
+		return nil, fmt.Errorf(fmt.Sprintf("error loading translation files: %s", err.Error()))
 	}
 	apiloader := &api.Apiloader{
 		Translator: &i18n.Translator{

@@ -3,7 +3,7 @@ DIST_DIRS         = find * -type d -exec
 
 .NOTPARALLEL:
 
-.PHONY: bootstrap build test test_fmt validate-copyright-headers fmt lint ci devenv
+.PHONY: bootstrap build test test_fmt validate-generated fmt lint ci devenv
 
 ifdef DEBUG
 GOFLAGS   := -gcflags="-N -l"
@@ -25,7 +25,7 @@ GITTAG := $(VERSION_SHORT)
 endif
 
 REPO_PATH := github.com/Azure/acs-engine
-DEV_ENV_IMAGE := quay.io/deis/go-dev:v1.17.3
+DEV_ENV_IMAGE := quay.io/deis/go-dev:v1.8.1
 DEV_ENV_WORK_DIR := /go/src/${REPO_PATH}
 DEV_ENV_OPTS := --rm -v ${CURDIR}:${DEV_ENV_WORK_DIR} -w ${DEV_ENV_WORK_DIR} ${DEV_ENV_VARS}
 DEV_ENV_CMD := docker run ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
@@ -44,21 +44,13 @@ all: build
 dev:
 	$(DEV_ENV_CMD_IT) bash
 
-.PHONY: validate-dependencies
-validate-dependencies: bootstrap
-	./scripts/validate-dependencies.sh
-
-.PHONY: validate-copyright-headers
-validate-copyright-headers:
-	./scripts/validate-copyright-header.sh
-
 .PHONY: generate
 generate: bootstrap
-	go generate $(GOFLAGS) -v `go list ./...`
+	go generate $(GOFLAGS) -v `glide novendor | xargs go list`
 
 .PHONY: generate-azure-constants
 generate-azure-constants:
-	python pkg/helpers/Get-AzureConstants.py
+	python pkg/acsengine/Get-AzureConstants.py
 
 .PHONY: build
 build: generate
@@ -105,7 +97,7 @@ ifneq ($(GIT_BASEDIR),)
 endif
 
 test: generate
-	ginkgo -skipPackage test/e2e/dcos,test/e2e/kubernetes,test/e2e/openshift -failFast -r .
+	ginkgo -skipPackage test/e2e -r .
 
 .PHONY: test-style
 test-style:
@@ -115,21 +107,24 @@ test-style:
 test-e2e:
 	@test/e2e.sh
 
-HAS_DEP := $(shell command -v dep;)
+HAS_GLIDE := $(shell command -v glide;)
 HAS_GOX := $(shell command -v gox;)
 HAS_GIT := $(shell command -v git;)
+HAS_GOBINDATA := $(shell command -v go-bindata;)
 HAS_GOMETALINTER := $(shell command -v gometalinter;)
 HAS_GINKGO := $(shell command -v ginkgo;)
 
 .PHONY: bootstrap
 bootstrap:
-ifndef HAS_DEP
-	go get -u github.com/golang/dep/cmd/dep
+ifndef HAS_GLIDE
+	go get -u github.com/Masterminds/glide
 endif
 ifndef HAS_GOX
 	go get -u github.com/mitchellh/gox
 endif
-	go install ./vendor/github.com/go-bindata/go-bindata/...
+ifndef HAS_GOBINDATA
+	go get github.com/jteeuwen/go-bindata/...
+endif
 ifndef HAS_GIT
 	$(error You must install Git)
 endif
@@ -142,7 +137,7 @@ ifndef HAS_GINKGO
 endif
 
 build-vendor:
-	${DEV_ENV_CMD} dep ensure
+	${DEV_ENV_CMD} rm -f glide.lock && rm -Rf vendor/ && glide --debug install --force --strip-vendor
 	rm -rf vendor/github.com/docker/distribution/contrib/docker-integration/generated_certs.d
 
 ci: bootstrap test-style build test lint
@@ -150,11 +145,10 @@ ci: bootstrap test-style build test lint
 
 .PHONY: coverage
 coverage:
-	@scripts/ginkgo.coverage.sh --codecov
+	@scripts/ginkgo.coverage.sh
 
 devenv:
 	./scripts/devenv.sh
 
 include versioning.mk
 include test.mk
-include packer.mk

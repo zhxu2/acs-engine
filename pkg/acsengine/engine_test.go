@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package acsengine
 
 import (
@@ -15,17 +12,14 @@ import (
 
 	"github.com/Azure/acs-engine/pkg/acsengine/transform"
 	"github.com/Azure/acs-engine/pkg/api"
-	"github.com/Azure/acs-engine/pkg/api/common"
 	"github.com/Azure/acs-engine/pkg/api/v20160330"
 	"github.com/Azure/acs-engine/pkg/api/vlabs"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/leonelquinteros/gotext"
-	"github.com/pkg/errors"
 )
 
 const (
-	TestDataDir          = "./testdata"
-	TestACSEngineVersion = "1.0.0"
+	TestDataDir = "./testdata"
 )
 
 func TestExpected(t *testing.T) {
@@ -61,6 +55,11 @@ func TestExpected(t *testing.T) {
 			addTestCertificateProfile(containerService.Properties.CertificateProfile)
 		}
 
+		isClassicMode := false
+		if strings.Contains(tuple.APIModelFilename, "_classicmode") {
+			isClassicMode = true
+		}
+
 		// test the output container service 3 times:
 		// 1. first time tests loaded containerService
 		// 2. second time tests generated containerService
@@ -70,57 +69,54 @@ func TestExpected(t *testing.T) {
 				Locale: locale,
 			},
 		}
-		templateGenerator, e3 := InitializeTemplateGenerator(ctx)
+		templateGenerator, e3 := InitializeTemplateGenerator(ctx, isClassicMode)
 		if e3 != nil {
 			t.Error(e3.Error())
 			continue
 		}
 
-		certsGenerated, err := containerService.SetPropertiesDefaults(false, false)
-
-		armTemplate, params, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, TestACSEngineVersion)
+		armTemplate, params, certsGenerated, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, false)
 		if err != nil {
-			t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, err.Error()))
+			t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, err.Error()))
 			continue
 		}
 
 		expectedPpArmTemplate, e1 := transform.PrettyPrintArmTemplate(armTemplate)
 		if e1 != nil {
 			t.Error(armTemplate)
-			t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, e1.Error()))
+			t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, e1.Error()))
 			break
 		}
 
 		expectedPpParams, e2 := transform.PrettyPrintJSON(params)
 		if e2 != nil {
-			t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, e2.Error()))
+			t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, e2.Error()))
 			continue
 		}
 
-		if certsGenerated {
+		if certsGenerated == true {
 			t.Errorf("cert generation unexpected for %s", containerService.Properties.OrchestratorProfile.OrchestratorType)
 		}
 
 		for i := 0; i < 3; i++ {
-			certsGenerated, err = containerService.SetPropertiesDefaults(false, false)
-			armTemplate, params, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, TestACSEngineVersion)
+			armTemplate, params, certsGenerated, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, false)
 			if err != nil {
-				t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, err.Error()))
+				t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, err.Error()))
 				continue
 			}
 			generatedPpArmTemplate, e1 := transform.PrettyPrintArmTemplate(armTemplate)
 			if e1 != nil {
-				t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, e1.Error()))
+				t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, e1.Error()))
 				continue
 			}
 
 			generatedPpParams, e2 := transform.PrettyPrintJSON(params)
 			if e2 != nil {
-				t.Error(errors.Errorf("error in file %s: %s", tuple.APIModelFilename, e2.Error()))
+				t.Error(fmt.Errorf("error in file %s: %s", tuple.APIModelFilename, e2.Error()))
 				continue
 			}
 
-			if certsGenerated {
+			if certsGenerated == true {
 				t.Errorf("cert generation unexpected for %s", containerService.Properties.OrchestratorProfile.OrchestratorType)
 			}
 
@@ -286,7 +282,7 @@ func TestTemplateOutputPresence(t *testing.T) {
 		},
 	}
 
-	templateGenerator, err := InitializeTemplateGenerator(ctx)
+	templateGenerator, err := InitializeTemplateGenerator(ctx, false)
 
 	if err != nil {
 		t.Fatalf("Failed to initialize template generator: %v", err)
@@ -296,8 +292,7 @@ func TestTemplateOutputPresence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load container service from file: %v", err)
 	}
-	containerService.SetPropertiesDefaults(false, false)
-	armTemplate, _, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, TestACSEngineVersion)
+	armTemplate, _, _, err := templateGenerator.GenerateTemplate(containerService, DefaultGeneratorCode, false)
 	if err != nil {
 		t.Fatalf("Failed to generate arm template: %v", err)
 	}
@@ -330,6 +325,52 @@ func TestTemplateOutputPresence(t *testing.T) {
 	}
 }
 
+func TestGetGPUDriversInstallScript(t *testing.T) {
+
+	// VMSize with GPU and NVIDIA agreement for drivers distribution
+	validSkus := []string{
+		"Standard_NC6",
+		"Standard_NC12",
+		"Standard_NC24",
+		"Standard_NC24r",
+		"Standard_NV6",
+		"Standard_NV12",
+		"Standard_NV24",
+		"Standard_NV24r",
+	}
+
+	// VMSize with GPU but NO NVIDIA agreement for drivers distribution
+	noLicenceSkus := []string{
+		"Standard_NC6_v2",
+		"Standard_NC12_v2",
+		"Standard_NC24_v2",
+		"Standard_NC24r_v2",
+		"Standard_ND6",
+		"Standard_ND12",
+		"Standard_ND24",
+		"Standard_ND24r",
+	}
+
+	for _, sku := range validSkus {
+		s := getGPUDriversInstallScript(&api.AgentPoolProfile{VMSize: sku})
+		if s == "" || s == getGPUDriversNotInstalledWarningMessage(sku) {
+			t.Fatalf("Expected NVIDIA driver install script for sku %v", sku)
+		}
+	}
+
+	for _, sku := range noLicenceSkus {
+		s := getGPUDriversInstallScript(&api.AgentPoolProfile{VMSize: sku})
+		if s != getGPUDriversNotInstalledWarningMessage(sku) {
+			t.Fatalf("NVIDIA driver install script was provided for a VM sku (%v) that does not meet NVIDIA agreement.", sku)
+		}
+	}
+
+	// VMSize without GPU
+	s := getGPUDriversInstallScript(&api.AgentPoolProfile{VMSize: "Standard_D2_v2"})
+	if s != "" {
+		t.Fatalf("VMSize without GPU should not receive a script, expected empty string, received %v", s)
+	}
+}
 func TestIsNSeriesSKU(t *testing.T) {
 	// VMSize with GPU
 	validSkus := []string{
@@ -352,7 +393,6 @@ func TestIsNSeriesSKU(t *testing.T) {
 		"Standard_NV12",
 		"Standard_NV24",
 		"Standard_NV6",
-		"Standard_NV24r",
 	}
 
 	invalidSkus := []string{
@@ -501,66 +541,14 @@ func TestIsNSeriesSKU(t *testing.T) {
 	}
 
 	for _, sku := range validSkus {
-		if !common.IsNvidiaEnabledSKU(sku) {
-			t.Fatalf("Expected common.IsNvidiaEnabledSKU(%s) to be true", sku)
+		if !isNSeriesSKU(&api.AgentPoolProfile{VMSize: sku}) {
+			t.Fatalf("Expected isNSeriesSKU(%s) to be true", sku)
 		}
 	}
 
 	for _, sku := range invalidSkus {
-		if common.IsNvidiaEnabledSKU(sku) {
-			t.Fatalf("Expected common.IsNvidiaEnabledSKU(%s) to be false", sku)
+		if isNSeriesSKU(&api.AgentPoolProfile{VMSize: sku}) {
+			t.Fatalf("Expected isNSeriesSKU(%s) to be false", sku)
 		}
-	}
-}
-
-func TestGenerateIpList(t *testing.T) {
-	count := 3
-	forth := 240
-	ipList := generateIPList(count, fmt.Sprintf("10.0.0.%d", forth))
-	if len(ipList) != 3 {
-		t.Fatalf("IP list size should be %d", count)
-	}
-	for i, ip := range ipList {
-		expected := fmt.Sprintf("10.0.0.%d", forth+i)
-		if ip != expected {
-			t.Fatalf("wrong IP %s. Expected %s", ip, expected)
-		}
-	}
-}
-
-func TestGenerateKubeConfig(t *testing.T) {
-	locale := gotext.NewLocale(path.Join("..", "..", "translations"), "en_US")
-	i18n.Initialize(locale)
-
-	apiloader := &api.Apiloader{
-		Translator: &i18n.Translator{
-			Locale: locale,
-		},
-	}
-
-	testData := "./testdata/simple/kubernetes.json"
-
-	containerService, _, err := apiloader.LoadContainerServiceFromFile(testData, true, false, nil)
-	if err != nil {
-		t.Fatalf("Failed to load container service from file: %v", err)
-	}
-	kubeConfig, err := GenerateKubeConfig(containerService.Properties, "westus2")
-	// TODO add actual kubeconfig validation
-	if len(kubeConfig) < 1 {
-		t.Fatalf("Got unexpected kubeconfig payload: %v", kubeConfig)
-	}
-	if err != nil {
-		t.Fatalf("Failed to call GenerateKubeConfig with simple Kubernetes config from file: %v", testData)
-	}
-
-	p := api.Properties{}
-	_, err = GenerateKubeConfig(&p, "westus2")
-	if err == nil {
-		t.Fatalf("Expected an error result from nil Properties child properties")
-	}
-
-	_, err = GenerateKubeConfig(nil, "westus2")
-	if err == nil {
-		t.Fatalf("Expected an error result from nil Properties child properties")
 	}
 }

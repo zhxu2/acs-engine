@@ -1,9 +1,6 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package acsengine
 
 //go:generate go-bindata -nometadata -pkg $GOPACKAGE -prefix ../../parts/ -o templates.go ../../parts/...
 //go:generate gofmt -s -l -w templates.go
-// fileloader use go-bindata (https://github.com/go-bindata/go-bindata)
+// fileloader use go-bindata (https://github.com/jteeuwen/go-bindata)
 // go-bindata is the way we handle embedded files, like binary, template, etc.

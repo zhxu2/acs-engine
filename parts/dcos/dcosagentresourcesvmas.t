@@ -60,8 +60,8 @@
       "location": "[variables('location')]",
       "name": "[variables('{{.Name}}AvailabilitySet')]",
       "properties": {
-        "platformFaultDomainCount": 2,
-        "platformUpdateDomainCount": 3,
+        "platformFaultDomainCount": "2",
+        "platformUpdateDomainCount": "3",
         "managed": "true"
       },
       "type": "Microsoft.Compute/availabilitySets"
@@ -175,16 +175,10 @@
 {{end}}
         "[concat('Microsoft.Network/networkInterfaces/', variables('{{.Name}}VMNamePrefix'), 'nic-', copyIndex(variables('{{.Name}}Offset')))]",
         "[concat('Microsoft.Compute/availabilitySets/', variables('{{.Name}}AvailabilitySet'))]"
-{{if and HasBootstrap (not IsHostedBootstrap)}}
-       ,"[concat('Microsoft.Compute/virtualMachines/', variables('bootstrapVMName'), /extensions/bootstrapready')]"
-{{end}}
       ],
       "tags":
       {
-        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]",
-        "orchestratorName": "dcos",
-        "orchestratorVersion": "[variables('orchestratorVersion')]",
-        "orchestratorNode": "agent"
+        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]"
       },
       "location": "[variables('location')]",
       "name": "[concat(variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]",
@@ -207,7 +201,7 @@
           "computername": "[concat(variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]",
           {{GetDCOSAgentCustomData .}}
           "linuxConfiguration": {
-              "disablePasswordAuthentication": true,
+              "disablePasswordAuthentication": "true",
               "ssh": {
                 "publicKeys": [
                   {
@@ -241,7 +235,7 @@
 {{end}}
 {{if ne .OSDiskSizeGB 0}}
             ,"diskSizeGB": {{.OSDiskSizeGB}}
-{{end}}
+{{end}}     
           }
 
         }

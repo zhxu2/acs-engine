@@ -1,12 +1,29 @@
     "masterFQDN": {
-      "type": "string",
-{{if not IsPrivateCluster}}
+      "type": "string", 
+{{if not IsPrivateCluster}}              
       "value": "[reference(concat('Microsoft.Network/publicIPAddresses/', variables('masterPublicIPAddressName'))).dnsSettings.fqdn]"
 {{else}}
       "value": ""
 {{end}}
     }
-{{if AnyAgentUsesAvailabilitySets}}
+{{if  GetClassicMode}}
+    ,
+    {{if RequiresFakeAgentOutput}}
+    "agentFQDN": {
+      "type": "string",
+      "value": ""
+    },
+    {{end}}
+    "diagnosticsStorageAccountUri": {
+      "type": "string",
+      "value": ""
+    },
+    "jumpboxFQDN": {
+      "type": "string",
+      "value": ""
+    }
+{{end}}
+{{if AnyAgentUsesAvailablilitySets}}
     ,
     "agentStorageAccountSuffix": {
       "type": "string",

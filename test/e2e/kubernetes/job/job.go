@@ -1,11 +1,9 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package job
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os/exec"
 	"regexp"
@@ -13,7 +11,6 @@ import (
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/pod"
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
-	"github.com/pkg/errors"
 )
 
 // List is a container that holds all jobs returned from doing a kubectl get jobs
@@ -119,7 +116,7 @@ func AreAllJobsCompleted(jobPrefix, namespace string) (bool, error) {
 	}
 
 	for _, s := range status {
-		if !s {
+		if s == false {
 			return false, nil
 		}
 	}
@@ -137,10 +134,10 @@ func WaitOnReady(jobPrefix, namespace string, sleep, duration time.Duration) (bo
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for Jobs (%s) to complete in namespace (%s)", duration.String(), jobPrefix, namespace)
+				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for Jobs (%s) to complete in namespace (%s)", duration.String(), jobPrefix, namespace)
 			default:
 				ready, _ := AreAllJobsCompleted(jobPrefix, namespace)
-				if ready {
+				if ready == true {
 					readyCh <- true
 				} else {
 					time.Sleep(sleep)
@@ -164,19 +161,13 @@ func (j *Job) WaitOnReady(sleep, duration time.Duration) (bool, error) {
 }
 
 // Delete will delete a Job in a given namespace
-func (j *Job) Delete(retries int) error {
-	var kubectlOutput []byte
-	var kubectlError error
-	for i := 0; i < retries; i++ {
-		cmd := exec.Command("kubectl", "delete", "job", "-n", j.Metadata.Namespace, j.Metadata.Name)
-		util.PrintCommand(cmd)
-		kubectlOutput, kubectlError = cmd.CombinedOutput()
-		if kubectlError != nil {
-			log.Printf("Error while trying to delete Job %s in namespace %s:%s\n", j.Metadata.Namespace, j.Metadata.Name, string(kubectlOutput))
-			continue
-		}
-		break
+func (j *Job) Delete() error {
+	cmd := exec.Command("kubectl", "delete", "job", "-n", j.Metadata.Namespace, j.Metadata.Name)
+	util.PrintCommand(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error while trying to delete Job %s in namespace %s:%s\n", j.Metadata.Namespace, j.Metadata.Name, string(out))
+		return err
 	}
-
-	return kubectlError
+	return nil
 }

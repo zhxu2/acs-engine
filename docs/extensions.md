@@ -103,7 +103,7 @@ In order to install a preprovision extension, there are two required files - sup
 
 |File Name|Description|
 |-----------------------------|---|
-|supported-orchestrators.json |Defines what orchestrators are supported by the extension (Swarm, Dcos, OpenShift or Kubernetes)|
+|supported-orchestrators.json |Defines what orchestrators are supported by the extension (Swarm, Dcos, or Kubernetes)|
 |template.json               |The ARM template used to deploy the extension|
 |template-link.json          |The ARM template snippet which will be injected into azuredeploy.json to call template.json|
 |EXTENSION-NAME.sh           |The script file that will execute on the VM itself via Custom Script Extension to perform installation of the extension|
@@ -138,7 +138,7 @@ The following is an example of the template.json file.
 				"description": "Storage API Version"
 			}
 		},
-		"apiVersionCompute": {
+		"apiVersionDefault": {
 			"type": "string",
 			"minLength": 1,
 			"metadata": {
@@ -183,7 +183,7 @@ The following is an example of the template.json file.
       }, 
       "type": "Microsoft.Storage/storageAccounts"	
 	}, {
-      "apiVersion": "[parameters('apiVersionCompute')]",
+      "apiVersion": "[parameters('apiVersionDefault')]",
       "dependsOn": [],
       "location": "[resourceGroup().location]",
       "type": "Microsoft.Compute/virtualMachines/extensions",
@@ -222,7 +222,7 @@ Replace "**EXTENSION-NAME**" with the name of the extension.
 {
     "name": "EXTENSION-NAME",
     "type": "Microsoft.Resources/deployments",
-    "apiVersion": "[variables('apiVersionCompute')]",
+    "apiVersion": "[variables('apiVersionLinkDefault')]",
     "dependsOn": [
         "vmLoopNode"
     ],
@@ -233,11 +233,14 @@ Replace "**EXTENSION-NAME**" with the name of the extension.
             "contentVersion": "1.0.0.0"
         },
         "parameters": {
-            "apiVersionCompute": {
-                "value": "[variables('apiVersionCompute')]"
+            "apiVersionStorage": {
+                "value": "[variables('apiVersionStorage')]"
+            },
+            "apiVersionDefault": {
+                "value": "[variables('apiVersionDefault')]"
             },
             "username": {
-                "value": "[parameters('linuxAdminUsername')]"
+                "value": "[variables('username')]"
             },
             "storageAccountBaseName": {
                 "value": "[variables('storageAccountBaseName')]"
@@ -292,8 +295,8 @@ echo $(date) " - Script complete"
 ```
 
 # Current list of extensions
-- [hello-world-dcos](../extensions/hello-world-dcos/README.md)
-- [hello-world-k8s](../extensions/hello-world-k8s/README.md)
+- [hello-world-dcos] (../extensions/hello-world-dcos/README.md)
+- [hello-world-k8s] (../extensions/hello-world-k8s/README.md)
 
 # Known issues
 Kubernetes extensions that run after provisioning don't currently work if the VM needs to reboot for security reboots. this is a timing issue. the extension script is started before the vm reboots and it will be cutoff before it finishes but will still report success. I've tried to get the provision script to only finish as reboot happens and I haven't gotten that to work. An extension could work most of the time if it cancelled the restart at the start and checked if a restart was needed and scheduled one at the end of its work

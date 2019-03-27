@@ -1,19 +1,5 @@
 package storage
 
-// Copyright 2017 Microsoft Corporation
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
 import (
 	"errors"
 	"fmt"
@@ -22,15 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 )
 
 const fourMB = uint64(4194304)
 const oneTB = uint64(1099511627776)
-
-// Export maximum range and file sizes
-const MaxRangeSize = fourMB
-const MaxFileSize = oneTB
 
 // File represents a file on a share.
 type File struct {
@@ -41,7 +22,6 @@ type File struct {
 	Properties         FileProperties `xml:"Properties"`
 	share              *Share
 	FileCopyProperties FileCopyState
-	mutex              *sync.Mutex
 }
 
 // FileProperties contains various properties of a file.
@@ -168,9 +148,7 @@ func (f *File) CopyFile(sourceURL string, options *FileRequestOptions) error {
 		return err
 	}
 
-	f.updateEtagAndLastModified(headers)
-	f.FileCopyProperties.ID = headers.Get("X-Ms-Copy-Id")
-	f.FileCopyProperties.Status = headers.Get("X-Ms-Copy-Status")
+	f.updateEtagLastModifiedAndCopyHeaders(headers)
 	return nil
 }
 
@@ -187,9 +165,9 @@ func (f *File) Delete(options *FileRequestOptions) error {
 func (f *File) DeleteIfExists(options *FileRequestOptions) (bool, error) {
 	resp, err := f.fsc.deleteResourceNoClose(f.buildPath(), resourceFile, options)
 	if resp != nil {
-		defer drainRespBody(resp)
-		if resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusNotFound {
-			return resp.StatusCode == http.StatusAccepted, nil
+		defer readAndCloseBody(resp.body)
+		if resp.statusCode == http.StatusAccepted || resp.statusCode == http.StatusNotFound {
+			return resp.statusCode == http.StatusAccepted, nil
 		}
 	}
 	return false, err
@@ -211,11 +189,11 @@ func (f *File) DownloadToStream(options *FileRequestOptions) (io.ReadCloser, err
 		return nil, err
 	}
 
-	if err = checkRespCode(resp, []int{http.StatusOK}); err != nil {
-		drainRespBody(resp)
+	if err = checkRespCode(resp.statusCode, []int{http.StatusOK}); err != nil {
+		readAndCloseBody(resp.body)
 		return nil, err
 	}
-	return resp.Body, nil
+	return resp.body, nil
 }
 
 // DownloadRangeToStream operation downloads the specified range of this file with optional MD5 hash.
@@ -241,14 +219,14 @@ func (f *File) DownloadRangeToStream(fileRange FileRange, options *GetFileOption
 		return fs, err
 	}
 
-	if err = checkRespCode(resp, []int{http.StatusOK, http.StatusPartialContent}); err != nil {
-		drainRespBody(resp)
+	if err = checkRespCode(resp.statusCode, []int{http.StatusOK, http.StatusPartialContent}); err != nil {
+		readAndCloseBody(resp.body)
 		return fs, err
 	}
 
-	fs.Body = resp.Body
+	fs.Body = resp.body
 	if options != nil && options.GetContentMD5 {
-		fs.ContentMD5 = resp.Header.Get("Content-MD5")
+		fs.ContentMD5 = resp.headers.Get("Content-MD5")
 	}
 	return fs, nil
 }
@@ -314,20 +292,20 @@ func (f *File) ListRanges(options *ListRangesOptions) (*FileRanges, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer resp.body.Close()
 	var cl uint64
-	cl, err = strconv.ParseUint(resp.Header.Get("x-ms-content-length"), 10, 64)
+	cl, err = strconv.ParseUint(resp.headers.Get("x-ms-content-length"), 10, 64)
 	if err != nil {
-		ioutil.ReadAll(resp.Body)
+		ioutil.ReadAll(resp.body)
 		return nil, err
 	}
 
 	var out FileRanges
 	out.ContentLength = cl
-	out.ETag = resp.Header.Get("ETag")
-	out.LastModified = resp.Header.Get("Last-Modified")
+	out.ETag = resp.headers.Get("ETag")
+	out.LastModified = resp.headers.Get("Last-Modified")
 
-	err = xmlUnmarshal(resp.Body, &out)
+	err = xmlUnmarshal(resp.body, &out)
 	return &out, err
 }
 
@@ -375,8 +353,8 @@ func (f *File) modifyRange(bytes io.Reader, fileRange FileRange, timeout *uint, 
 	if err != nil {
 		return nil, err
 	}
-	defer drainRespBody(resp)
-	return resp.Header, checkRespCode(resp, []int{http.StatusCreated})
+	defer readAndCloseBody(resp.body)
+	return resp.headers, checkRespCode(resp.statusCode, []int{http.StatusCreated})
 }
 
 // SetMetadata replaces the metadata for this file.
@@ -421,6 +399,14 @@ func (f *File) updateEtagAndLastModified(headers http.Header) {
 	f.Properties.LastModified = headers.Get("Last-Modified")
 }
 
+// updates Etag, last modified date and x-ms-copy-id
+func (f *File) updateEtagLastModifiedAndCopyHeaders(headers http.Header) {
+	f.Properties.Etag = headers.Get("Etag")
+	f.Properties.LastModified = headers.Get("Last-Modified")
+	f.FileCopyProperties.ID = headers.Get("X-Ms-Copy-Id")
+	f.FileCopyProperties.Status = headers.Get("X-Ms-Copy-Status")
+}
+
 // updates file properties from the specified HTTP header
 func (f *File) updateProperties(header http.Header) {
 	size, err := strconv.ParseUint(header.Get("Content-Length"), 10, 64)
@@ -444,7 +430,7 @@ func (f *File) URL() string {
 	return f.fsc.client.getEndpoint(fileServiceName, f.buildPath(), nil)
 }
 
-// WriteRangeOptions includes options for a write file range operation
+// WriteRangeOptions includes opptions for a write file range operation
 type WriteRangeOptions struct {
 	Timeout    uint
 	ContentMD5 string
@@ -470,11 +456,7 @@ func (f *File) WriteRange(bytes io.Reader, fileRange FileRange, options *WriteRa
 	if err != nil {
 		return err
 	}
-	// it's perfectly legal for multiple go routines to call WriteRange
-	// on the same *File (e.g. concurrently writing non-overlapping ranges)
-	// so we must take the file mutex before updating our properties.
-	f.mutex.Lock()
+
 	f.updateEtagAndLastModified(headers)
-	f.mutex.Unlock()
 	return nil
 }

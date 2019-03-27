@@ -8,17 +8,7 @@ The Azure Container Service Engine (`acs-engine`) generates ARM (Azure Resource 
 
 Binary downloads for the latest version of acs-engine for are available [here](https://github.com/Azure/acs-engine/releases/latest). Download `acs-engine` for your operating system. Extract the binary and copy it to your `$PATH`.
 
-You can also choose to install acs-engine using [gofish](https://gofi.sh/#about), to do so execute the command `gofish install acs-engine` . You can install gofish following the [instructions](https://gofi.sh/#install) for your OS.
-
 If you would prefer to build `acs-engine` from source or you are interested in contributing to `acs-engine` see [building from source](#build-acs-engine-from-source) below.
-
-## Completion
-
-`acs-engine` supports bash completion. To enable this, add the following to your `.bashrc` or `~/.profile`
-
-```bash
-source <(acs-engine completion)
-```
 
 ## Usage
 
@@ -96,7 +86,7 @@ When the script `devenv.ps1` or `devenv.sh` completes, you will be left at a com
 
 Run the following commands to pull the latest dependencies and build the `acs-engine` tool.
 
-```sh
+```
 # install and download build dependencies
 make bootstrap
 # build the `acs-engine` binary
@@ -105,20 +95,20 @@ make build
 
 The build process leaves the compiled `acs-engine` binary in the `bin` directory. Make sure everything completed successfully by running `bin/acs-engine` without any arguments:
 
-```sh
-$ ./bin/acs-engine
-ACS-Engine deploys and manages Kubernetes, OpenShift, Swarm Mode, and DC/OS clusters in Azure
+```
+# ./bin/acs-engine
+ACS-Engine deploys and manages Kubernetes, Swarm Mode, and DC/OS clusters in Azure
 
 Usage:
   acs-engine [command]
 
 Available Commands:
-  deploy        Deploy an Azure Resource Manager template
+  deploy        deploy an Azure Resource Manager template
   generate      Generate an Azure Resource Manager template
   help          Help about any command
-  orchestrators Display info about supported orchestrators
-  scale         Scale an existing Kubernetes cluster
-  upgrade       Upgrade an existing Kubernetes cluster
+  orchestrators provide info about supported orchestrators
+  scale         scale a deployed cluster
+  upgrade       upgrades an existing Kubernetes cluster
   version       Print the version of ACS-Engine
 
 Flags:
@@ -137,7 +127,6 @@ Use "acs-engine [command] --help" for more information about a command.
 Building ACS Engine from source has a few requirements for each of the platforms. Download and install the pre-reqs for your platform, Windows, Linux, or Mac:
 
 ### Prerequisite
-
 1. Go version 1.8 [installation instructions](https://golang.org/doc/install)
 2. Git Version Control [installation instructions](https://git-scm.com/download/)
 
@@ -145,20 +134,20 @@ Building ACS Engine from source has a few requirements for each of the platforms
 
 Setup steps:
 
-* Setup your go workspace. This guide assumes you are using `c:\gopath` as your Go workspace:
+1. Setup your go workspace. This guide assumes you are using `c:\gopath` as your Go workspace:
   1. Type Windows key-R to open the run prompt
   2. Type `rundll32 sysdm.cpl,EditEnvironmentVariables` to open the system variables
   3. Add `c:\go\bin` and `c:\gopath\bin` to your PATH variables
   4. Click "new" and add new environment variable named `GOPATH` and set the value to `c:\gopath`
 
-* Build acs-engine:
+Build acs-engine:
   1. Type Windows key-R to open the run prompt
   2. Type `cmd` to open a command prompt
   3. Type `mkdir %GOPATH%` to create your gopath
   4. Type `cd %GOPATH%`
   5. Type `go get -d github.com/Azure/acs-engine` to download acs-engine from GitHub
   6. Type `go get all` to get the supporting components
-  7. Type `go get -u github.com/go-bindata/go-bindata/...`
+  7. Type `go get -u github.com/jteeuwen/go-bindata/...`
   8. Type `cd %GOPATH%\src\github.com\Azure\acs-engine\pkg\acsengine`
   9. Type `go generate`
   10. Type `cd %GOPATH%\src\github.com\Azure\acs-engine\pkg\i18n`
@@ -174,15 +163,14 @@ Setup steps:
 
   1. Open a command prompt to setup your gopath:
   2. `mkdir $HOME/go`
-  3. Edit `$HOME/.bash_profile` and add the following lines to setup your go path:
-      ```sh
-      export GOPATH=$HOME/go
-      export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-      ```
+  3. edit `$HOME/.bash_profile` and add the following lines to setup your go path
+  ```
+  export GOPATH=$HOME/go
+  export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+  ```
   4. `source $HOME/.bash_profile`
 
 Build acs-engine:
-
   1. Type `go get github.com/Azure/acs-engine` to get the acs-engine Github project
   2. Type `cd $GOPATH/src/github.com/Azure/acs-engine` to change to the source directory
   3. Type `make bootstrap` to install supporting components

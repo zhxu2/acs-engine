@@ -1,46 +1,43 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package acsengine
 
 import (
-	"context"
+	"fmt"
 	"net/http"
 	"regexp"
-	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
-	"github.com/pkg/errors"
+	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
+	"github.com/Azure/go-autorest/autorest/azure"
 	log "github.com/sirupsen/logrus"
 )
 
 // GetTenantID figures out the AAD tenant ID of the subscription by making an
 // unauthenticated request to the Get Subscription Details endpoint and parses
 // the value from WWW-Authenticate header.
-// TODO this should probably to to the armhelpers library
-func GetTenantID(resourceManagerEndpoint string, subscriptionID string) (string, error) {
+func GetTenantID(env azure.Environment, subscriptionID string) (string, error) {
 	const hdrKey = "WWW-Authenticate"
-	c := subscriptions.NewClientWithBaseURI(resourceManagerEndpoint)
+	c := subscriptions.NewGroupClient()
+	c.BaseURI = env.ResourceManagerEndpoint
 
 	log.Debugf("Resolving tenantID for subscriptionID: %s", subscriptionID)
 
 	// we expect this request to fail (err != nil), but we are only interested
 	// in headers, so surface the error if the Response is not present (i.e.
 	// network error etc)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*150)
-	defer cancel()
-	subs, err := c.Get(ctx, subscriptionID)
+	subs, err := c.Get(subscriptionID)
 	if subs.Response.Response == nil {
-		return "", errors.Wrap(err, "Request failed")
+		log.Errorf("Request failed: %v", err)
+		return "", fmt.Errorf("Request failed: %v", err)
 	}
 
 	// Expecting 401 StatusUnauthorized here, just read the header
 	if subs.StatusCode != http.StatusUnauthorized {
-		return "", errors.Errorf("Unexpected response from Get Subscription: %v", subs.StatusCode)
+		log.Errorf("Unexpected response from Get Subscription: %v", subs.StatusCode)
+		return "", fmt.Errorf("Unexpected response from Get Subscription: %v", subs.StatusCode)
 	}
 	hdr := subs.Header.Get(hdrKey)
 	if hdr == "" {
-		return "", errors.Errorf("Header %v not found in Get Subscription response", hdrKey)
+		log.Errorf("Header %v not found in Get Subscription response", hdrKey)
+		return "", fmt.Errorf("Header %v not found in Get Subscription response", hdrKey)
 	}
 
 	// Example value for hdr:
@@ -48,7 +45,8 @@ func GetTenantID(resourceManagerEndpoint string, subscriptionID string) (string,
 	r := regexp.MustCompile(`authorization_uri=".*/([0-9a-f\-]+)"`)
 	m := r.FindStringSubmatch(hdr)
 	if m == nil {
-		return "", errors.Errorf("Could not find the tenant ID in header: %s %q", hdrKey, hdr)
+		log.Errorf("Could not find the tenant ID in header: %s %q", hdrKey, hdr)
+		return "", fmt.Errorf("Could not find the tenant ID in header: %s %q", hdrKey, hdr)
 	}
 	return m[1], nil
 }

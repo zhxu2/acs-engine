@@ -23,7 +23,7 @@ cd ../../..
 * Push your Docker image to Docker Hub:
 
 ```
-docker tag k8s.gcr.io/hyperkube-amd64:sometag dockerhubid/hyperkube-amd64:sometag
+docker tag gcr.io/google-containers/hyperkube-amd64:sometag dockerhubid/hyperkube-amd64:sometag
 docker push dockerhubid/hyperkube-amd64:sometag
 ```
 

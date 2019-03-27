@@ -1,14 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 func checkJSONKeys(data []byte, types ...reflect.Type) error {
@@ -25,7 +21,7 @@ func checkMapKeys(o map[string]interface{}, types ...reflect.Type) error {
 	for k, v := range o {
 		f, present := fieldMap[strings.ToLower(k)]
 		if !present {
-			return errors.Errorf("Unknown JSON tag %s", k)
+			return fmt.Errorf("Unknown JSON tag %s", k)
 		}
 		if f.Type.Kind() == reflect.Struct && v != nil {
 			if childMap, exists := v.(map[string]interface{}); exists {

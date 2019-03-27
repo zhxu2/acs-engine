@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package v20170131
 
 import (
@@ -47,7 +44,7 @@ func TestAgentPoolProfile(t *testing.T) {
 		t.Fatalf("unexpectedly detected AgentPoolProfile.Count != 1 after unmarshal")
 	}
 
-	if !ap.IsLinux() {
+	if ap.OSType != Linux {
 		t.Fatalf("unexpectedly detected AgentPoolProfile.OSType != Linux after unmarshal")
 	}
 }

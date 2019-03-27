@@ -27,8 +27,8 @@ az login --service-principal \
 # set to the sub id we want to cleanup
 az account set -s $SUBSCRIPTION_ID
 
-python pkg/helpers/Get-AzureConstants.py
-git status | grep pkg/helpers/azureconst.go
+python pkg/acsengine/Get-AzureConstants.py
+git status | grep pkg/acsengine/azureconst.go
 exit_code=$?
 if [ $exit_code -gt "0" ]; then
   echo "No modifications found! Exiting 0"
@@ -36,4 +36,4 @@ if [ $exit_code -gt "0" ]; then
 else
   echo "File was modified! Exiting 1"
   exit 1
-fi
+fi 

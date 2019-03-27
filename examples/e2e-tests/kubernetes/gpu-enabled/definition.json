@@ -13,7 +13,7 @@
       "agentPoolProfiles": [
         {
           "name": "linuxpool1",
-          "count": 2,
+          "count": 3,
           "vmSize": "Standard_NC6",
           "availabilityProfile": "AvailabilitySet"
         }

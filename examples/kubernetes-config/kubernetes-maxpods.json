@@ -4,9 +4,7 @@
     "orchestratorProfile": {
       "orchestratorType": "Kubernetes",
       "kubernetesConfig": {
-        "kubeletConfig": {
-          "--max-pods": "20"
-        }
+        "maxPods": 20
       }
     },
     "masterProfile": {

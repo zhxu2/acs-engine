@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package api
 
 import (
@@ -8,9 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/blang/semver"
+	"github.com/Masterminds/semver"
 
-	"github.com/Azure/acs-engine/pkg/api/common"
 	"github.com/Azure/acs-engine/pkg/api/v20160330"
 	"github.com/Azure/acs-engine/pkg/api/v20160930"
 	"github.com/Azure/acs-engine/pkg/api/v20170131"
@@ -165,8 +161,6 @@ func ConvertOrchestratorVersionProfileToVLabs(api *OrchestratorVersionProfile) *
 		vlabsProfile.OrchestratorType = vlabs.Swarm
 	case SwarmMode:
 		vlabsProfile.OrchestratorType = vlabs.SwarmMode
-	case OpenShift:
-		vlabsProfile.OrchestratorType = vlabs.OpenShift
 	}
 	vlabsProfile.OrchestratorVersion = api.OrchestratorVersion
 	vlabsProfile.Default = api.Default
@@ -478,15 +472,6 @@ func convertPropertiesToVLabs(api *Properties, vlabsProps *vlabs.Properties) {
 		vlabsProps.AADProfile = &vlabs.AADProfile{}
 		convertAADProfileToVLabs(api.AADProfile, vlabsProps.AADProfile)
 	}
-	if api.AzProfile != nil {
-		vlabsProps.AzProfile = &vlabs.AzProfile{}
-		convertAzProfileToVLabs(api.AzProfile, vlabsProps.AzProfile)
-	}
-
-	if api.FeatureFlags != nil {
-		vlabsProps.FeatureFlags = &vlabs.FeatureFlags{}
-		convertFeatureFlagsToVLabs(api.FeatureFlags, vlabsProps.FeatureFlags)
-	}
 }
 
 func convertLinuxProfileToV20160930(api *LinuxProfile, obj *v20160930.LinuxProfile) {
@@ -563,17 +548,6 @@ func convertLinuxProfileToVLabs(obj *LinuxProfile, vlabsProfile *vlabs.LinuxProf
 		vlabsProfile.Secrets = append(vlabsProfile.Secrets, *secret)
 	}
 	vlabsProfile.ScriptRootURL = obj.ScriptRootURL
-	if obj.CustomSearchDomain != nil {
-		vlabsProfile.CustomSearchDomain = &vlabs.CustomSearchDomain{}
-		vlabsProfile.CustomSearchDomain.Name = obj.CustomSearchDomain.Name
-		vlabsProfile.CustomSearchDomain.RealmUser = obj.CustomSearchDomain.RealmUser
-		vlabsProfile.CustomSearchDomain.RealmPassword = obj.CustomSearchDomain.RealmPassword
-	}
-
-	if obj.CustomNodesDNS != nil {
-		vlabsProfile.CustomNodesDNS = &vlabs.CustomNodesDNS{}
-		vlabsProfile.CustomNodesDNS.DNSServer = obj.CustomNodesDNS.DNSServer
-	}
 }
 
 func convertWindowsProfileToV20160930(api *WindowsProfile, v20160930 *v20160930.WindowsProfile) {
@@ -601,10 +575,6 @@ func convertWindowsProfileToVLabs(api *WindowsProfile, vlabsProfile *vlabs.Windo
 	vlabsProfile.AdminPassword = api.AdminPassword
 	vlabsProfile.ImageVersion = api.ImageVersion
 	vlabsProfile.WindowsImageSourceURL = api.WindowsImageSourceURL
-	vlabsProfile.WindowsPublisher = api.WindowsPublisher
-	vlabsProfile.WindowsOffer = api.WindowsOffer
-	vlabsProfile.WindowsSku = api.WindowsSku
-	vlabsProfile.WindowsDockerVersion = api.WindowsDockerVersion
 	vlabsProfile.Secrets = []vlabs.KeyVaultSecrets{}
 	for _, s := range api.Secrets {
 		secret := &vlabs.KeyVaultSecrets{}
@@ -651,25 +621,15 @@ func convertOrchestratorProfileToV20170701(api *OrchestratorProfile, o *v2017070
 
 func convertOrchestratorProfileToVLabs(api *OrchestratorProfile, o *vlabs.OrchestratorProfile) {
 	o.OrchestratorType = api.OrchestratorType
-
 	if api.OrchestratorVersion != "" {
 		o.OrchestratorVersion = api.OrchestratorVersion
-		// Enable using "unstable" as a valid version in the openshift orchestrator.
-		// Required for progressing on an unreleased version.
-		if !api.IsOpenShift() || api.OrchestratorVersion != common.OpenShiftVersionUnstable {
-			sv, _ := semver.Make(o.OrchestratorVersion)
-			o.OrchestratorRelease = fmt.Sprintf("%d.%d", sv.Major, sv.Minor)
-		}
+		sv, _ := semver.NewVersion(o.OrchestratorVersion)
+		o.OrchestratorRelease = fmt.Sprintf("%d.%d", sv.Major(), sv.Minor())
 	}
 
 	if api.KubernetesConfig != nil {
 		o.KubernetesConfig = &vlabs.KubernetesConfig{}
 		convertKubernetesConfigToVLabs(api.KubernetesConfig, o.KubernetesConfig)
-	}
-
-	if api.OpenShiftConfig != nil {
-		o.OpenShiftConfig = &vlabs.OpenShiftConfig{}
-		convertOpenShiftConfigToVLabs(api.OpenShiftConfig, o.OpenShiftConfig)
 	}
 
 	if api.DcosConfig != nil {
@@ -678,45 +638,9 @@ func convertOrchestratorProfileToVLabs(api *OrchestratorProfile, o *vlabs.Orches
 	}
 }
 
-func convertOpenShiftConfigToVLabs(api *OpenShiftConfig, vl *vlabs.OpenShiftConfig) {
-	vl.KubernetesConfig = &vlabs.KubernetesConfig{}
-	if api.KubernetesConfig != nil {
-		convertKubernetesConfigToVLabs(api.KubernetesConfig, vl.KubernetesConfig)
-	}
-	vl.ClusterUsername = api.ClusterUsername
-	vl.ClusterPassword = api.ClusterPassword
-	vl.EnableAADAuthentication = api.EnableAADAuthentication
-	vl.ConfigBundles = api.ConfigBundles
-}
-
-func convertDcosConfigToVLabs(api *DcosConfig, vl *vlabs.DcosConfig) {
-	vl.DcosBootstrapURL = api.DcosBootstrapURL
-	vl.DcosWindowsBootstrapURL = api.DcosWindowsBootstrapURL
-
-	if api.Registry != "" {
-		vl.Registry = api.Registry
-	}
-
-	if api.RegistryUser != "" {
-		vl.RegistryUser = api.RegistryUser
-	}
-
-	if api.RegistryPass != "" {
-		vl.RegistryPass = api.RegistryPass
-	}
-	vl.DcosRepositoryURL = api.DcosRepositoryURL
-	vl.DcosClusterPackageListID = api.DcosClusterPackageListID
-	vl.DcosProviderPackageID = api.DcosProviderPackageID
-
-	if api.BootstrapProfile != nil {
-		vl.BootstrapProfile = &vlabs.BootstrapProfile{
-			VMSize:       api.BootstrapProfile.VMSize,
-			OSDiskSizeGB: api.BootstrapProfile.OSDiskSizeGB,
-			OAuthEnabled: api.BootstrapProfile.OAuthEnabled,
-			StaticIP:     api.BootstrapProfile.StaticIP,
-			Subnet:       api.BootstrapProfile.Subnet,
-		}
-	}
+func convertDcosConfigToVLabs(api *DcosConfig, vlabs *vlabs.DcosConfig) {
+	vlabs.DcosBootstrapURL = api.DcosBootstrapURL
+	vlabs.DcosWindowsBootstrapURL = api.DcosWindowsBootstrapURL
 }
 
 func convertKubernetesConfigToVLabs(api *KubernetesConfig, vlabs *vlabs.KubernetesConfig) {
@@ -725,7 +649,6 @@ func convertKubernetesConfigToVLabs(api *KubernetesConfig, vlabs *vlabs.Kubernet
 	vlabs.DNSServiceIP = api.DNSServiceIP
 	vlabs.ServiceCidr = api.ServiceCIDR
 	vlabs.NetworkPolicy = api.NetworkPolicy
-	vlabs.NetworkPlugin = api.NetworkPlugin
 	vlabs.MaxPods = api.MaxPods
 	vlabs.DockerBridgeSubnet = api.DockerBridgeSubnet
 	vlabs.CloudProviderBackoff = api.CloudProviderBackoff
@@ -737,56 +660,32 @@ func convertKubernetesConfigToVLabs(api *KubernetesConfig, vlabs *vlabs.Kubernet
 	vlabs.CloudProviderRateLimitBucket = api.CloudProviderRateLimitBucket
 	vlabs.CloudProviderRateLimitQPS = api.CloudProviderRateLimitQPS
 	vlabs.UseManagedIdentity = api.UseManagedIdentity
-	vlabs.UserAssignedID = api.UserAssignedID
-	vlabs.UserAssignedClientID = api.UserAssignedClientID
 	vlabs.CustomHyperkubeImage = api.CustomHyperkubeImage
+	vlabs.DockerEngineVersion = api.DockerEngineVersion
 	vlabs.CustomCcmImage = api.CustomCcmImage
 	vlabs.UseCloudControllerManager = api.UseCloudControllerManager
-	vlabs.CustomWindowsPackageURL = api.CustomWindowsPackageURL
-	vlabs.WindowsNodeBinariesURL = api.WindowsNodeBinariesURL
 	vlabs.UseInstanceMetadata = api.UseInstanceMetadata
-	vlabs.LoadBalancerSku = api.LoadBalancerSku
-	vlabs.ExcludeMasterFromStandardLB = api.ExcludeMasterFromStandardLB
 	vlabs.EnableRbac = api.EnableRbac
 	vlabs.EnableSecureKubelet = api.EnableSecureKubelet
 	vlabs.EnableAggregatedAPIs = api.EnableAggregatedAPIs
+	vlabs.EnablePrivateCluster = api.EnablePrivateCluster
 	vlabs.EnableDataEncryptionAtRest = api.EnableDataEncryptionAtRest
-	vlabs.EnableEncryptionWithExternalKms = api.EnableEncryptionWithExternalKms
 	vlabs.EnablePodSecurityPolicy = api.EnablePodSecurityPolicy
 	vlabs.GCHighThreshold = api.GCHighThreshold
 	vlabs.GCLowThreshold = api.GCLowThreshold
 	vlabs.EtcdVersion = api.EtcdVersion
 	vlabs.EtcdDiskSizeGB = api.EtcdDiskSizeGB
-	vlabs.EtcdEncryptionKey = api.EtcdEncryptionKey
-	vlabs.AzureCNIVersion = api.AzureCNIVersion
-	vlabs.AzureCNIURLLinux = api.AzureCNIURLLinux
-	vlabs.AzureCNIURLWindows = api.AzureCNIURLWindows
 	convertAddonsToVlabs(api, vlabs)
 	convertKubeletConfigToVlabs(api, vlabs)
 	convertControllerManagerConfigToVlabs(api, vlabs)
 	convertCloudControllerManagerConfigToVlabs(api, vlabs)
 	convertAPIServerConfigToVlabs(api, vlabs)
-	convertSchedulerConfigToVlabs(api, vlabs)
-	convertPrivateClusterToVlabs(api, vlabs)
-	convertPodSecurityPolicyConfigToVlabs(api, vlabs)
 }
 
 func convertKubeletConfigToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
 	v.KubeletConfig = map[string]string{}
 	for key, val := range a.KubeletConfig {
 		v.KubeletConfig[key] = val
-	}
-}
-
-func convertCustomFilesToVlabs(a *MasterProfile, v *vlabs.MasterProfile) {
-	if a.CustomFiles != nil {
-		v.CustomFiles = &[]vlabs.CustomFile{}
-		for i := range *a.CustomFiles {
-			*v.CustomFiles = append(*v.CustomFiles, vlabs.CustomFile{
-				Dest:   (*a.CustomFiles)[i].Dest,
-				Source: (*a.CustomFiles)[i].Source,
-			})
-		}
 	}
 }
 
@@ -811,40 +710,6 @@ func convertAPIServerConfigToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfi
 	}
 }
 
-func convertSchedulerConfigToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
-	v.SchedulerConfig = map[string]string{}
-	for key, val := range a.SchedulerConfig {
-		v.SchedulerConfig[key] = val
-	}
-}
-
-func convertPodSecurityPolicyConfigToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
-	v.PodSecurityPolicyConfig = map[string]string{}
-	for key, val := range a.PodSecurityPolicyConfig {
-		v.PodSecurityPolicyConfig[key] = val
-	}
-}
-
-func convertPrivateClusterToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
-	if a.PrivateCluster != nil {
-		v.PrivateCluster = &vlabs.PrivateCluster{}
-		v.PrivateCluster.Enabled = a.PrivateCluster.Enabled
-		if a.PrivateCluster.JumpboxProfile != nil {
-			v.PrivateCluster.JumpboxProfile = &vlabs.PrivateJumpboxProfile{}
-			convertPrivateJumpboxProfileToVlabs(a.PrivateCluster.JumpboxProfile, v.PrivateCluster.JumpboxProfile)
-		}
-	}
-}
-
-func convertPrivateJumpboxProfileToVlabs(api *PrivateJumpboxProfile, vlabsProfile *vlabs.PrivateJumpboxProfile) {
-	vlabsProfile.Name = api.Name
-	vlabsProfile.OSDiskSizeGB = api.OSDiskSizeGB
-	vlabsProfile.VMSize = api.VMSize
-	vlabsProfile.PublicKey = api.PublicKey
-	vlabsProfile.Username = api.Username
-	vlabsProfile.StorageProfile = api.StorageProfile
-}
-
 func convertAddonsToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
 	v.Addons = []vlabs.KubernetesAddon{}
 	for i := range a.Addons {
@@ -852,7 +717,6 @@ func convertAddonsToVlabs(a *KubernetesConfig, v *vlabs.KubernetesConfig) {
 			Name:    a.Addons[i].Name,
 			Enabled: a.Addons[i].Enabled,
 			Config:  map[string]string{},
-			Data:    a.Addons[i].Data,
 		})
 		for j := range a.Addons[i].Containers {
 			v.Addons[i].Containers = append(v.Addons[i].Containers, vlabs.KubernetesContainerSpec{
@@ -909,11 +773,9 @@ func convertMasterProfileToV20170701(api *MasterProfile, v20170701Profile *v2017
 func convertMasterProfileToVLabs(api *MasterProfile, vlabsProfile *vlabs.MasterProfile) {
 	vlabsProfile.Count = api.Count
 	vlabsProfile.DNSPrefix = api.DNSPrefix
-	vlabsProfile.SubjectAltNames = api.SubjectAltNames
 	vlabsProfile.VMSize = api.VMSize
 	vlabsProfile.OSDiskSizeGB = api.OSDiskSizeGB
 	vlabsProfile.VnetSubnetID = api.VnetSubnetID
-	vlabsProfile.AgentVnetSubnetID = api.AgentVnetSubnetID
 	vlabsProfile.FirstConsecutiveStaticIP = api.FirstConsecutiveStaticIP
 	vlabsProfile.VnetCidr = api.VnetCidr
 	vlabsProfile.SetSubnet(api.Subnet)
@@ -935,16 +797,6 @@ func convertMasterProfileToVLabs(api *MasterProfile, vlabsProfile *vlabs.MasterP
 		vlabsProfile.KubernetesConfig = &vlabs.KubernetesConfig{}
 		convertKubernetesConfigToVLabs(api.KubernetesConfig, vlabsProfile.KubernetesConfig)
 	}
-	if api.ImageRef != nil {
-		vlabsProfile.ImageRef = &vlabs.ImageReference{}
-		vlabsProfile.ImageRef.Name = api.ImageRef.Name
-		vlabsProfile.ImageRef.ResourceGroup = api.ImageRef.ResourceGroup
-	}
-	vlabsProfile.AvailabilityProfile = api.AvailabilityProfile
-	vlabsProfile.AgentSubnet = api.AgentSubnet
-	vlabsProfile.AvailabilityZones = api.AvailabilityZones
-	vlabsProfile.SinglePlacementGroup = api.SinglePlacementGroup
-	convertCustomFilesToVlabs(api, vlabsProfile)
 }
 
 func convertKeyVaultSecretsToVlabs(api *KeyVaultSecrets, vlabsSecrets *vlabs.KeyVaultSecrets) {
@@ -1013,8 +865,6 @@ func convertAgentPoolProfileToVLabs(api *AgentPoolProfile, p *vlabs.AgentPoolPro
 	p.Ports = []int{}
 	p.Ports = append(p.Ports, api.Ports...)
 	p.AvailabilityProfile = api.AvailabilityProfile
-	p.ScaleSetPriority = api.ScaleSetPriority
-	p.ScaleSetEvictionPolicy = api.ScaleSetEvictionPolicy
 	p.StorageProfile = api.StorageProfile
 	p.DiskSizesGB = []int{}
 	p.DiskSizesGB = append(p.DiskSizesGB, api.DiskSizesGB...)
@@ -1022,11 +872,6 @@ func convertAgentPoolProfileToVLabs(api *AgentPoolProfile, p *vlabs.AgentPoolPro
 	p.SetSubnet(api.Subnet)
 	p.FQDN = api.FQDN
 	p.CustomNodeLabels = map[string]string{}
-	p.AcceleratedNetworkingEnabled = api.AcceleratedNetworkingEnabled
-	p.AcceleratedNetworkingEnabledWindows = api.AcceleratedNetworkingEnabledWindows
-	p.AvailabilityZones = api.AvailabilityZones
-	p.SinglePlacementGroup = api.SinglePlacementGroup
-
 	for k, v := range api.CustomNodeLabels {
 		p.CustomNodeLabels[k] = v
 	}
@@ -1048,12 +893,6 @@ func convertAgentPoolProfileToVLabs(api *AgentPoolProfile, p *vlabs.AgentPoolPro
 		p.KubernetesConfig = &vlabs.KubernetesConfig{}
 		convertKubernetesConfigToVLabs(api.KubernetesConfig, p.KubernetesConfig)
 	}
-	if api.ImageRef != nil {
-		p.ImageRef = &vlabs.ImageReference{}
-		p.ImageRef.Name = api.ImageRef.Name
-		p.ImageRef.ResourceGroup = api.ImageRef.ResourceGroup
-	}
-	p.Role = vlabs.AgentPoolProfileRole(api.Role)
 }
 
 func convertDiagnosticsProfileToV20160930(api *DiagnosticsProfile, dp *v20160930.DiagnosticsProfile) {
@@ -1135,7 +974,6 @@ func convertCustomProfileToV20170701(api *CustomProfile, v20170701 *v20170701.Cu
 func convertServicePrincipalProfileToV20170701(api *ServicePrincipalProfile, v *v20170701.ServicePrincipalProfile) {
 	v.ClientID = api.ClientID
 	v.Secret = api.Secret
-	v.ObjectID = api.ObjectID
 	if api.KeyvaultSecretRef != nil {
 		v.KeyvaultSecretRef = &v20170701.KeyvaultSecretRef{
 			VaultID:       api.KeyvaultSecretRef.VaultID,
@@ -1148,7 +986,6 @@ func convertServicePrincipalProfileToV20170701(api *ServicePrincipalProfile, v *
 func convertServicePrincipalProfileToVLabs(api *ServicePrincipalProfile, v *vlabs.ServicePrincipalProfile) {
 	v.ClientID = api.ClientID
 	v.Secret = api.Secret
-	v.ObjectID = api.ObjectID
 	if api.KeyvaultSecretRef != nil {
 		v.KeyvaultSecretRef = &vlabs.KeyvaultSecretRef{
 			VaultID:       api.KeyvaultSecretRef.VaultID,
@@ -1180,16 +1017,4 @@ func convertAADProfileToVLabs(api *AADProfile, vlabs *vlabs.AADProfile) {
 	vlabs.ServerAppID = api.ServerAppID
 	vlabs.TenantID = api.TenantID
 	vlabs.AdminGroupID = api.AdminGroupID
-}
-
-func convertAzProfileToVLabs(api *AzProfile, vlabs *vlabs.AzProfile) {
-	vlabs.Location = api.Location
-	vlabs.ResourceGroup = api.ResourceGroup
-	vlabs.SubscriptionID = api.SubscriptionID
-	vlabs.TenantID = api.TenantID
-}
-
-func convertFeatureFlagsToVLabs(api *FeatureFlags, vlabs *vlabs.FeatureFlags) {
-	vlabs.EnableCSERunInBackground = api.EnableCSERunInBackground
-	vlabs.BlockOutboundInternet = api.BlockOutboundInternet
 }

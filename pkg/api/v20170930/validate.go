@@ -1,12 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package v20170930
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/Azure/acs-engine/pkg/api/common"
 )
 
 // Validate implements APIObject
@@ -21,7 +19,7 @@ func (o *OrchestratorVersionProfile) Validate() error {
 	case strings.EqualFold(o.OrchestratorType, DockerCE):
 		o.OrchestratorType = DockerCE
 	default:
-		return errors.Errorf("Unsupported orchestrator '%s'", o.OrchestratorType)
+		return fmt.Errorf("Unsupported orchestrator '%s'", o.OrchestratorType)
 	}
 	return nil
 }
@@ -30,13 +28,13 @@ func (o *OrchestratorVersionProfile) Validate() error {
 func (o *OrchestratorProfile) ValidateForUpgrade() error {
 	switch o.OrchestratorType {
 	case DCOS, DockerCE, Swarm:
-		return errors.Errorf("Upgrade is not supported for orchestrator %s", o.OrchestratorType)
+		return fmt.Errorf("Upgrade is not supported for orchestrator %s", o.OrchestratorType)
 	case Kubernetes:
 		switch o.OrchestratorVersion {
-		case "1.6.13":
-		case "1.7.14":
+		case common.KubernetesVersion1Dot6Dot13:
+		case common.KubernetesVersion1Dot7Dot13:
 		default:
-			return errors.Errorf("Upgrade to Kubernetes %s is not supported", o.OrchestratorVersion)
+			return fmt.Errorf("Upgrade to Kubernetes %s is not supported", o.OrchestratorVersion)
 		}
 	}
 	return nil

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package remote
 
 import (
@@ -15,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -91,7 +87,11 @@ func (c *Connection) Execute(cmd string) ([]byte, error) {
 	}
 	defer session.Close()
 
-	return session.CombinedOutput(cmd)
+	out, err := session.CombinedOutput(cmd)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 func (c *Connection) Write(data, path string) error {
@@ -150,7 +150,7 @@ func (c *Connection) ExecuteWithRetries(cmd string, sleep, duration time.Duratio
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for command to not return an error: %s", duration.String(), cmd)
+				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for command to not return an error: %s", duration.String(), cmd)
 			default:
 				out, err := c.Execute(cmd)
 				if err == nil {

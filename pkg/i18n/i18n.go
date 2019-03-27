@@ -1,9 +1,7 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package i18n
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,7 +9,6 @@ import (
 
 	"path"
 
-	"github.com/pkg/errors"
 	"github.com/leonelquinteros/gotext"
 )
 
@@ -72,7 +69,7 @@ func LoadTranslations() (*gotext.Locale, error) {
 // Initialize is the translation initialization function shared by the main program and package.
 func Initialize(locale *gotext.Locale) error {
 	if locale == nil {
-		return errors.New("Initialize expected locale but got nil")
+		return fmt.Errorf("Initialize expected locale but got nil")
 	}
 	locale.AddDomain(defaultDomain)
 	return nil

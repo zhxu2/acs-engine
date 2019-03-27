@@ -96,21 +96,14 @@
 {{if IsPublic .Ports}}
        ,"[concat('Microsoft.Network/loadBalancers/', variables('{{.Name}}LbName'))]"
 {{end}}
-{{if and HasBootstrap (not IsHostedBootstrap)}}
-       ,"[concat('Microsoft.Compute/virtualMachines/', variables('bootstrapVMName'), '/extensions/bootstrapready')]"
-{{end}}
       ],
       "tags":
       {
-        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), 'vmss')]",
-        "orchestratorName": "dcos",
-        "orchestratorVersion": "[variables('orchestratorVersion')]",
-        "orchestratorNode": "agent"
+        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), '-vmss')]"
       },
       "location": "[variables('location')]",
-      "name": "[concat(variables('{{.Name}}VMNamePrefix'), 'vmss')]",
+      "name": "[concat(variables('{{.Name}}VMNamePrefix'), '-vmss')]",
       "properties": {
-        "overprovision": false,
         "upgradePolicy": {
           "mode": "Manual"
         },
@@ -152,7 +145,7 @@
             "computerNamePrefix": "[variables('{{.Name}}VMNamePrefix')]",
             {{GetDCOSAgentCustomData .}}
             "linuxConfiguration": {
-              "disablePasswordAuthentication": true,
+              "disablePasswordAuthentication": "true",
               "ssh": {
                 "publicKeys": [
                   {

@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package persistentvolumeclaims
 
 import (
@@ -12,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
-	"github.com/pkg/errors"
 )
 
 // PersistentVolumeClaims is used to parse data from kubectl get pvc
@@ -74,36 +70,6 @@ func Get(pvcName, namespace string) (*PersistentVolumeClaims, error) {
 	return &pvc, nil
 }
 
-// Describe gets the description for the given pvc and namespace.
-func Describe(pvcName, namespace string) error {
-	cmd := exec.Command("kubectl", "describe", "pvc", pvcName, "-n", namespace)
-	util.PrintCommand(cmd)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("\n%s\n", string(out))
-	return nil
-}
-
-// Delete will delete a PersistentVolumeClaims in a given namespace
-func (pvc *PersistentVolumeClaims) Delete(retries int) error {
-	var kubectlOutput []byte
-	var kubectlError error
-	for i := 0; i < retries; i++ {
-		cmd := exec.Command("kubectl", "delete", "pvc", "-n", pvc.Metadata.NameSpace, pvc.Metadata.Name)
-		kubectlOutput, kubectlError = util.RunAndLogCommand(cmd)
-		if kubectlError != nil {
-			log.Printf("Error while trying to delete PVC %s in namespace %s:%s\n", pvc.Metadata.Name, pvc.Metadata.NameSpace, string(kubectlOutput))
-			continue
-		}
-		break
-	}
-
-	return kubectlError
-}
-
 // WaitOnReady will block until PersistentVolumeClaims is available
 func (pvc *PersistentVolumeClaims) WaitOnReady(namespace string, sleep, duration time.Duration) (bool, error) {
 	readyCh := make(chan bool, 1)
@@ -114,13 +80,12 @@ func (pvc *PersistentVolumeClaims) WaitOnReady(namespace string, sleep, duration
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for PersistentVolumeClaims (%s) to become ready", duration.String(), pvc.Metadata.Name)
+				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for PersistentVolumeClaims (%s) to become ready", duration.String(), pvc.Metadata.Name)
 			default:
 				query, _ := Get(pvc.Metadata.Name, namespace)
 				if query != nil && query.Status.Phase == "Bound" {
 					readyCh <- true
 				} else {
-					Describe(pvc.Metadata.Name, namespace)
 					time.Sleep(sleep)
 				}
 			}

@@ -116,15 +116,11 @@
       ],
       "tags":
       {
-        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), '-vmss')]",
-        "orchestratorName": "dcos",
-        "orchestratorVersion": "[variables('orchestratorVersion')]",
-        "orchestratorNode": "agent"
+        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), '-vmss')]"
       },
       "location": "[variables('location')]",
       "name": "[concat(variables('{{.Name}}VMNamePrefix'), '-vmss')]",
       "properties": {
-        "overprovision": false,
         "upgradePolicy": {
           "mode": "Manual"
         },
@@ -165,7 +161,7 @@
             "computerNamePrefix": "[concat(substring(variables('nameSuffix'), 0, 5), 'acs')]",
             "adminUsername": "[variables('windowsAdminUsername')]",
             "adminPassword": "[variables('windowsAdminPassword')]",
-            {{GetDCOSWindowsAgentCustomData .}}
+            {{GetDCOSWindowsAgentCustomData .}}           
             {{if HasWindowsSecrets}}
               ,
               "secrets": "[variables('windowsProfileSecrets')]"

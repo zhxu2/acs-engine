@@ -82,8 +82,8 @@
       "location": "[variables('location')]",
       "name": "[variables('{{.Name}}AvailabilitySet')]",
       "properties": {
-        "platformFaultDomainCount": 2,
-        "platformUpdateDomainCount": 3,
+        "platformFaultDomainCount": "2",
+        "platformUpdateDomainCount": "3",
         "managed": "true"
       },
       "type": "Microsoft.Compute/availabilitySets"
@@ -174,7 +174,7 @@
               "frontendIPConfiguration": {
                 "id": "[variables('{{.Name}}LbIPConfigID')]"
               },
-              "protocol": "Tcp",
+              "protocol": "tcp",
               "frontendPortRangeStart": "[variables('{{.Name}}WindowsRDPNatRangeStart')]",
               "frontendPortRangeEnd": "[variables('{{.Name}}WindowsRDPEndRangeStop')]",
               "backendPort": "[variables('agentWindowsBackendPort')]"
@@ -213,10 +213,7 @@
       ],
       "tags":
       {
-        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]",
-        "orchestratorName": "dcos",
-        "orchestratorVersion": "[variables('orchestratorVersion')]",
-        "orchestratorNode": "agent"
+        "creationSource" : "[concat('acsengine-', variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]"
       },
       "location": "[variables('location')]",
       "name": "[concat(variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]",
@@ -264,22 +261,22 @@
 {{end}}
 {{if ne .OSDiskSizeGB 0}}
             ,"diskSizeGB": {{.OSDiskSizeGB}}
-{{end}}
+{{end}}     
           }
         }
       },
       "type": "Microsoft.Compute/virtualMachines"
     },
     {
-      "apiVersion": "[variables('apiVersionDefault')]",
+      "apiVersion": "[variables('apiVersionDefault')]", 
       "copy": {
-        "count": "[sub(variables('{{.Name}}Count'), variables('{{.Name}}Offset'))]",
+        "count": "[sub(variables('{{.Name}}Count'), variables('{{.Name}}Offset'))]", 
         "name": "vmLoopNode"
-      },
+      }, 
       "dependsOn": [
         "[concat('Microsoft.Compute/virtualMachines/', variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')))]"
-      ],
-      "location": "[variables('location')]",
+      ], 
+      "location": "[variables('location')]", 
       "name": "[concat(variables('{{.Name}}VMNamePrefix'), copyIndex(variables('{{.Name}}Offset')), '/cse')]",
       "properties": {
         "publisher": "Microsoft.Compute",
@@ -289,6 +286,6 @@
         "settings": {
           "commandToExecute": "[variables('{{.Name}}windowsAgentCustomScript')]"
         }
-      },
+      }, 
       "type": "Microsoft.Compute/virtualMachines/extensions"
     }

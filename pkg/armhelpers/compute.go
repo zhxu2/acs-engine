@@ -1,83 +1,25 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package armhelpers
 
 import (
-	"context"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/compute"
 )
 
 // ListVirtualMachines returns (the first page of) the machines in the specified resource group.
-func (az *AzureClient) ListVirtualMachines(ctx context.Context, resourceGroup string) (VirtualMachineListResultPage, error) {
-	page, err := az.virtualMachinesClient.List(ctx, resourceGroup)
-	return &page, err
+func (az *AzureClient) ListVirtualMachines(resourceGroup string) (compute.VirtualMachineListResult, error) {
+	return az.virtualMachinesClient.List(resourceGroup)
 }
 
 // GetVirtualMachine returns the specified machine in the specified resource group.
-func (az *AzureClient) GetVirtualMachine(ctx context.Context, resourceGroup, name string) (compute.VirtualMachine, error) {
-	return az.virtualMachinesClient.Get(ctx, resourceGroup, name, "")
+func (az *AzureClient) GetVirtualMachine(resourceGroup, name string) (compute.VirtualMachine, error) {
+	return az.virtualMachinesClient.Get(resourceGroup, name, "")
 }
 
 // DeleteVirtualMachine handles deletion of a CRP/VMAS VM (aka, not a VMSS VM).
-func (az *AzureClient) DeleteVirtualMachine(ctx context.Context, resourceGroup, name string) error {
-	future, err := az.virtualMachinesClient.Delete(ctx, resourceGroup, name)
-	if err != nil {
-		return err
-	}
-
-	if err = future.WaitForCompletionRef(ctx, az.virtualMachinesClient.Client); err != nil {
-		return err
-	}
-
-	_, err = future.Result(az.virtualMachinesClient)
-	return err
+func (az *AzureClient) DeleteVirtualMachine(resourceGroup, name string, cancel <-chan struct{}) (<-chan compute.OperationStatusResponse, <-chan error) {
+	return az.virtualMachinesClient.Delete(resourceGroup, name, cancel)
 }
 
 // ListVirtualMachineScaleSets returns (the first page of) the vmss resources in the specified resource group.
-func (az *AzureClient) ListVirtualMachineScaleSets(ctx context.Context, resourceGroup string) (compute.VirtualMachineScaleSetListResultPage, error) {
-	return az.virtualMachineScaleSetsClient.List(ctx, resourceGroup)
-}
-
-// ListVirtualMachineScaleSetVMs returns the list of VMs per VMSS
-func (az *AzureClient) ListVirtualMachineScaleSetVMs(ctx context.Context, resourceGroup, virtualMachineScaleSet string) (compute.VirtualMachineScaleSetVMListResultPage, error) {
-	return az.virtualMachineScaleSetVMsClient.List(ctx, resourceGroup, virtualMachineScaleSet, "", "", "")
-}
-
-// DeleteVirtualMachineScaleSetVM deletes a VM in a VMSS
-func (az *AzureClient) DeleteVirtualMachineScaleSetVM(ctx context.Context, resourceGroup, virtualMachineScaleSet, instanceID string) error {
-	future, err := az.virtualMachineScaleSetVMsClient.Delete(ctx, resourceGroup, virtualMachineScaleSet, instanceID)
-	if err != nil {
-		return err
-	}
-
-	if err = future.WaitForCompletionRef(ctx, az.virtualMachineScaleSetVMsClient.Client); err != nil {
-		return err
-	}
-
-	_, err = future.Result(az.virtualMachineScaleSetVMsClient)
-	return err
-}
-
-// SetVirtualMachineScaleSetCapacity sets the VMSS capacity
-func (az *AzureClient) SetVirtualMachineScaleSetCapacity(ctx context.Context, resourceGroup, virtualMachineScaleSet string, sku compute.Sku, location string) error {
-	future, err := az.virtualMachineScaleSetsClient.CreateOrUpdate(
-		ctx,
-		resourceGroup,
-		virtualMachineScaleSet,
-		compute.VirtualMachineScaleSet{
-			Location: &location,
-			Sku:      &sku,
-		})
-	if err != nil {
-		return err
-	}
-
-	if err = future.WaitForCompletionRef(ctx, az.virtualMachineScaleSetsClient.Client); err != nil {
-		return err
-	}
-
-	_, err = future.Result(az.virtualMachineScaleSetsClient)
-	return err
+func (az *AzureClient) ListVirtualMachineScaleSets(resourceGroup string) (compute.VirtualMachineScaleSetListResult, error) {
+	return az.virtualMachineScaleSetsClient.List(resourceGroup)
 }

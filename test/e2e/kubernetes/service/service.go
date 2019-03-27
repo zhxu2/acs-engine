@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package service
 
 import (
@@ -15,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
-	"github.com/pkg/errors"
 )
 
 // Service represents a kubernetes service
@@ -61,10 +57,10 @@ type LoadBalancer struct {
 // Get returns the service definition specified in a given namespace
 func Get(name, namespace string) (*Service, error) {
 	cmd := exec.Command("kubectl", "get", "svc", "-o", "json", "-n", namespace, name)
+	util.PrintCommand(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("Error getting svc:\n")
-		util.PrintCommand(cmd)
+		log.Printf("Error trying to run 'kubectl get svc':%s\n", string(out))
 		return nil, err
 	}
 	s := Service{}
@@ -77,20 +73,15 @@ func Get(name, namespace string) (*Service, error) {
 }
 
 // Delete will delete a service in a given namespace
-func (s *Service) Delete(retries int) error {
-	var kubectlOutput []byte
-	var kubectlError error
-	for i := 0; i < retries; i++ {
-		cmd := exec.Command("kubectl", "delete", "svc", "-n", s.Metadata.Namespace, s.Metadata.Name)
-		kubectlOutput, kubectlError = util.RunAndLogCommand(cmd)
-		if kubectlError != nil {
-			log.Printf("Error while trying to delete service %s in namespace %s:%s\n", s.Metadata.Namespace, s.Metadata.Name, string(kubectlOutput))
-			continue
-		}
-		break
+func (s *Service) Delete() error {
+	cmd := exec.Command("kubectl", "delete", "svc", "-n", s.Metadata.Namespace, s.Metadata.Name)
+	util.PrintCommand(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error while trying to delete service %s in namespace %s:%s\n", s.Metadata.Namespace, s.Metadata.Name, string(out))
+		return err
 	}
-
-	return kubectlError
+	return nil
 }
 
 // GetNodePort will return the node port for a given pod
@@ -113,7 +104,7 @@ func (s *Service) WaitForExternalIP(wait, sleep time.Duration) (*Service, error)
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.New("Timeout exceeded while waiting for External IP to be provisioned")
+				errCh <- fmt.Errorf("Timeout exceeded while waiting for External IP to be provisioned")
 			default:
 				svc, _ := Get(s.Metadata.Name, s.Metadata.Namespace)
 				if svc != nil && svc.Status.LoadBalancer.Ingress != nil {
@@ -154,7 +145,7 @@ func (s *Service) Validate(check string, attempts int, sleep, wait time.Duration
 		if err == nil {
 			body, _ := ioutil.ReadAll(resp.Body)
 			matched, _ := regexp.MatchString(check, string(body))
-			if matched {
+			if matched == true {
 				defer resp.Body.Close()
 				return true
 			}
@@ -167,26 +158,4 @@ func (s *Service) Validate(check string, attempts int, sleep, wait time.Duration
 		defer resp.Body.Close()
 	}
 	return false
-}
-
-// CreateServiceFromFile will create a Service from file with a name
-func CreateServiceFromFile(filename, name, namespace string) (*Service, error) {
-	svc, err := Get(name, namespace)
-	if err == nil {
-		log.Printf("Service %s already exists\n", name)
-		return svc, nil
-	}
-	cmd := exec.Command("kubectl", "create", "-f", filename)
-	util.PrintCommand(cmd)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Error trying to create Service %s:%s\n", name, string(out))
-		return nil, err
-	}
-	svc, err = Get(name, namespace)
-	if err != nil {
-		log.Printf("Error while trying to fetch Service %s:%s\n", name, err)
-		return nil, err
-	}
-	return svc, nil
 }

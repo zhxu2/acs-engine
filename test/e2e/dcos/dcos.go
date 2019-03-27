@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package dcos
 
 import (
@@ -16,7 +13,6 @@ import (
 	"github.com/Azure/acs-engine/test/e2e/config"
 	"github.com/Azure/acs-engine/test/e2e/engine"
 	"github.com/Azure/acs-engine/test/e2e/remote"
-	"github.com/pkg/errors"
 )
 
 // Cluster holds information on how to communicate with the the dcos instances
@@ -132,7 +128,7 @@ func NewCluster(cfg *config.Config, eng *engine.Engine) (*Cluster, error) {
 // InstallDCOSClient will download and place in the path the dcos client
 func (c *Cluster) InstallDCOSClient() error {
 
-	out, err := c.Connection.Execute("curl -O https://dcos-mirror.azureedge.net/binaries/cli/linux/x86-64/dcos-1.10/dcos")
+	out, err := c.Connection.Execute("curl -O https://downloads.dcos.io/binaries/cli/linux/x86-64/dcos-1.8/dcos")
 	if err != nil {
 		log.Printf("Error downloading DCOS cli:%s\n", err)
 		log.Printf("Output:%s\n", out)
@@ -144,9 +140,9 @@ func (c *Cluster) InstallDCOSClient() error {
 		log.Printf("Output:%s\n", out)
 		return err
 	}
-	out, err = c.Connection.Execute("./dcos cluster setup http://localhost:80")
+	out, err = c.Connection.Execute("./dcos config set core.dcos_url http://localhost:80")
 	if err != nil {
-		log.Printf("Error while trying dcos cluster setup:%s\n", err)
+		log.Printf("Error while trying set core.dcos_url:%s\n", err)
 		log.Printf("Output:%s\n", out)
 		return err
 	}
@@ -163,7 +159,7 @@ func (c *Cluster) WaitForNodes(nodeCount int, sleep, duration time.Duration) boo
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for nodes to become ready", duration.String())
+				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for nodes to become ready", duration.String())
 			default:
 				nodes, err := c.GetNodes()
 				ready := true
@@ -292,8 +288,8 @@ func (c *Cluster) InstallMarathonApp(filepath string, sleep, duration time.Durat
 			return 0, err
 		}
 		ready := c.WaitOnReady(app.ID, sleep, duration)
-		if !ready {
-			return 0, errors.Errorf("App %s was never installed", app.ID)
+		if ready == false {
+			return 0, fmt.Errorf("App %s was never installed", app.ID)
 		}
 	}
 	return port, nil
@@ -314,7 +310,10 @@ func (c *Cluster) InstallMarathonLB() error {
 func (c *Cluster) AppExists(path string) bool {
 	cmd := fmt.Sprintf("./dcos marathon app list | grep %s", path)
 	_, err := c.Connection.Execute(cmd)
-	return err == nil
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // AppHealthy returns true if the app is deployed and healthy
@@ -327,14 +326,20 @@ func (c *Cluster) AppHealthy(path string) bool {
 
 	var app MarathonApp
 	json.Unmarshal(out, &app)
-	return app.Instances == app.TaskHealthy
+	if app.Instances == app.TaskHealthy {
+		return true
+	}
+	return false
 }
 
 // PackageExists retruns true if the package name is found when doing dcos package list
 func (c *Cluster) PackageExists(name string) bool {
 	cmd := fmt.Sprintf("./dcos package list | grep %s", name)
 	_, err := c.Connection.Execute(cmd)
-	return err == nil
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // WaitOnReady will block until app is in ready state
@@ -347,9 +352,9 @@ func (c *Cluster) WaitOnReady(path string, sleep, duration time.Duration) bool {
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for app (%s) to become ready", duration.String(), path)
+				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for app (%s) to become ready", duration.String(), path)
 			default:
-				if c.AppExists(path) && c.AppHealthy(path) {
+				if c.AppExists(path) == true && c.AppHealthy(path) {
 					time.Sleep(sleep)
 					readyCh <- true
 				}

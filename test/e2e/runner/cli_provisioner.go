@@ -1,11 +1,8 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package runner
 
 import (
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -14,16 +11,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/acs-engine/pkg/helpers"
 	"github.com/Azure/acs-engine/test/e2e/azure"
 	"github.com/Azure/acs-engine/test/e2e/config"
+	"github.com/Azure/acs-engine/test/e2e/dcos"
 	"github.com/Azure/acs-engine/test/e2e/engine"
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/node"
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
 	"github.com/Azure/acs-engine/test/e2e/metrics"
 	"github.com/Azure/acs-engine/test/e2e/remote"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 )
 
 // CLIProvisioner holds the configuration needed to provision a clusters
@@ -31,7 +27,6 @@ type CLIProvisioner struct {
 	ClusterDefinition string `envconfig:"CLUSTER_DEFINITION" required:"true" default:"examples/kubernetes.json"` // ClusterDefinition is the path on disk to the json template these are normally located in examples/
 	ProvisionRetries  int    `envconfig:"PROVISION_RETRIES" default:"0"`
 	CreateVNET        bool   `envconfig:"CREATE_VNET" default:"false"`
-	MasterVMSS        bool   `envconfig:"MASTER_VMSS" default:"false"`
 	Config            *config.Config
 	Account           *azure.Account
 	Point             *metrics.Point
@@ -66,36 +61,21 @@ func (cli *CLIProvisioner) Run() error {
 				cli.Point.RecordProvisionError()
 			} else if i == cli.ProvisionRetries {
 				cli.Point.RecordProvisionError()
-				return errors.Errorf("Exceeded provision retry count: %s", err.Error())
+				return fmt.Errorf("Exceeded provision retry count: %s", err)
 			}
 		} else {
 			cli.Point.RecordProvisionSuccess()
 			cli.Point.SetNodeWaitStart()
 			err := cli.waitForNodes()
 			cli.Point.RecordNodeWait(err)
-			return err
+			if err != nil {
+
+				return err
+			}
+			return nil
 		}
 	}
-	return errors.New("Unable to run provisioner")
-}
-
-func createSaveSSH(outputPath string, privateKeyName string) (string, error) {
-	os.Mkdir(outputPath, 0755)
-	keyPath := filepath.Join(outputPath, privateKeyName)
-	cmd := exec.Command("ssh-keygen", "-f", keyPath, "-q", "-N", "", "-b", "2048", "-t", "rsa")
-
-	util.PrintCommand(cmd)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", errors.Wrapf(err, "Error while trying to generate ssh key\nOutput:%s", out)
-	}
-
-	os.Chmod(keyPath, 0600)
-	publicSSHKeyBytes, err := ioutil.ReadFile(keyPath + ".pub")
-	if err != nil {
-		return "", errors.Wrap(err, "Error while trying to read public ssh key")
-	}
-	return string(publicSSHKeyBytes), nil
+	return fmt.Errorf("Unable to run provisioner")
 }
 
 func (cli *CLIProvisioner) provision() error {
@@ -106,140 +86,94 @@ func (cli *CLIProvisioner) provision() error {
 	os.Setenv("NAME", cli.Config.Name)
 
 	outputPath := filepath.Join(cli.Config.CurrentWorkingDir, "_output")
-	if !cli.Config.UseDeployCommand {
-		publicSSHKey, err := createSaveSSH(outputPath, cli.Config.Name+"-ssh")
+	os.Mkdir(outputPath, 0755)
+
+	if cli.Config.SoakClusterName == "" {
+		cmd := exec.Command("ssh-keygen", "-f", cli.Config.GetSSHKeyPath(), "-q", "-N", "", "-b", "2048", "-t", "rsa")
+		util.PrintCommand(cmd)
+		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return errors.Wrap(err, "Error while generating ssh keys")
+			return fmt.Errorf("Error while trying to generate ssh key:%s\nOutput:%s", err, out)
 		}
-		os.Setenv("PUBLIC_SSH_KEY", publicSSHKey)
 	}
 
+	publicSSHKey, err := cli.Config.ReadPublicSSHKey()
+	if err != nil {
+		return fmt.Errorf("Error while trying to read public ssh key: %s", err)
+	}
+	os.Setenv("PUBLIC_SSH_KEY", publicSSHKey)
 	os.Setenv("DNS_PREFIX", cli.Config.Name)
 
-	err := cli.Account.CreateGroup(cli.Config.Name, cli.Config.Location)
+	err = cli.Account.CreateGroup(cli.Config.Name, cli.Config.Location)
 	if err != nil {
-		return errors.Wrap(err, "Error while trying to create resource group")
+		return fmt.Errorf("Error while trying to create resource group: %s", err)
 	}
 
 	subnetID := ""
 	vnetName := fmt.Sprintf("%sCustomVnet", cli.Config.Name)
 	subnetName := fmt.Sprintf("%sCustomSubnet", cli.Config.Name)
-	masterSubnetID := ""
-	agentSubnetID := ""
-
 	if cli.CreateVNET {
-		if cli.MasterVMSS {
-			masterSubnetName := fmt.Sprintf("%sCustomSubnetMaster", cli.Config.Name)
-			agentSubnetName := fmt.Sprintf("%sCustomSubnetAgent", cli.Config.Name)
-			err = cli.Account.CreateVnet(vnetName, "10.239.0.0/16", masterSubnetName, "10.239.0.0/17")
-			if err != nil {
-				return errors.Errorf("Error trying to create vnet:%s", err.Error())
-			}
-
-			masterSubnetID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s", cli.Account.SubscriptionID, cli.Account.ResourceGroup.Name, vnetName, masterSubnetName)
-
-			err = cli.Account.CreateSubnet(vnetName, agentSubnetName, "10.239.128.0/17")
-			if err != nil {
-				return errors.Errorf("Error trying to create subnet in vnet:%s", err.Error())
-			}
-
-			agentSubnetID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s", cli.Account.SubscriptionID, cli.Account.ResourceGroup.Name, vnetName, agentSubnetName)
-		} else {
-			err = cli.Account.CreateVnet(vnetName, "10.239.0.0/16", subnetName, "10.239.0.0/16")
-			if err != nil {
-				return errors.Errorf("Error trying to create vnet:%s", err.Error())
-			}
-			subnetID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s", cli.Account.SubscriptionID, cli.Account.ResourceGroup.Name, vnetName, subnetName)
+		err = cli.Account.CreateVnet(vnetName, "10.239.0.0/16", subnetName, "10.239.0.0/16")
+		if err != nil {
+			return fmt.Errorf("Error trying to create vnet:%s", err)
 		}
+		subnetID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s", cli.Account.SubscriptionID, cli.Account.ResourceGroup.Name, vnetName, subnetName)
 	}
 
 	// Lets modify our template and call acs-engine generate on it
-	var eng *engine.Engine
-
-	if cli.CreateVNET && cli.MasterVMSS {
-		eng, err = engine.Build(cli.Config, masterSubnetID, agentSubnetID, true)
-	} else {
-		eng, err = engine.Build(cli.Config, subnetID, subnetID, false)
-	}
-
+	eng, err := engine.Build(cli.Config, subnetID)
 	if err != nil {
-		return errors.Wrap(err, "Error while trying to build cluster definition")
+		return fmt.Errorf("Error while trying to build cluster definition:%s", err)
 	}
 	cli.Engine = eng
 
 	err = cli.Engine.Write()
 	if err != nil {
-		return errors.Wrap(err, "Error while trying to write Engine Template to disk:%s")
+		return fmt.Errorf("Error while trying to write Engine Template to disk:%s", err)
 	}
 
-	err = cli.generateAndDeploy()
+	err = cli.Engine.Generate()
 	if err != nil {
-		return errors.Wrap(err, "Error in generateAndDeploy:%s")
-	}
-
-	if cli.Config.IsKubernetes() {
-		// Store the hosts for future introspection
-		hosts, err := cli.Account.GetHosts(cli.Config.Name)
-		if err != nil {
-			return errors.Wrap(err, "GetHosts:%s")
-		}
-		var masters, agents []azure.VM
-		for _, host := range hosts {
-			if strings.Contains(host.Name, "master") {
-				masters = append(masters, host)
-			} else if strings.Contains(host.Name, "agent") {
-				agents = append(agents, host)
-			}
-		}
-		cli.Masters = masters
-		cli.Agents = agents
-	}
-
-	return nil
-}
-
-func (cli *CLIProvisioner) generateAndDeploy() error {
-	if cli.Config.UseDeployCommand {
-		fmt.Printf("Provisionning with the Deploy Command\n")
-		err := cli.Engine.Deploy(cli.Config.Location)
-		if err != nil {
-			return errors.Wrap(err, "Error while trying to deploy acs-engine template")
-		}
-	} else {
-		err := cli.Engine.Generate()
-		if err != nil {
-			return errors.Wrap(err, "Error while trying to generate acs-engine template")
-		}
+		return fmt.Errorf("Error while trying to generate acs-engine template:%s", err)
 	}
 
 	c, err := config.ParseConfig()
 	if err != nil {
-		return errors.Wrap(err, "unable to parse base config")
+		return fmt.Errorf("unable to parse base config")
 	}
 	engCfg, err := engine.ParseConfig(cli.Config.CurrentWorkingDir, c.ClusterDefinition, c.Name)
 	if err != nil {
-		return errors.Wrap(err, "unable to parse config")
+		return fmt.Errorf("unable to parse config")
 	}
 	csGenerated, err := engine.ParseOutput(engCfg.GeneratedDefinitionPath + "/apimodel.json")
 	if err != nil {
-		return errors.Wrap(err, "unable to parse output")
+		return fmt.Errorf("unable to parse output")
 	}
 	cli.Engine.ExpandedDefinition = csGenerated
 
-	// Kubernetes deployments should have a kubeconfig available
-	// at this point.
-	if cli.Config.IsKubernetes() && !cli.IsPrivate() {
-		cli.Config.SetKubeConfig()
+	// Lets start by just using the normal az group deployment cli for creating a cluster
+	err = cli.Account.CreateDeployment(cli.Config.Name, eng)
+	if err != nil {
+		return fmt.Errorf("Error while trying to create deployment:%s", err)
 	}
 
-	//if we use Generate, then we need to call CreateDeployment
-	if !cli.Config.UseDeployCommand {
-		err = cli.Account.CreateDeployment(cli.Config.Name, cli.Engine)
-		if err != nil {
-			return errors.Wrap(err, "Error while trying to create deployment")
+	// Store the hosts for future introspection
+	hosts, err := cli.Account.GetHosts(cli.Config.Name)
+	if err != nil {
+		return err
+	}
+	var masters, agents []azure.VM
+	for _, host := range hosts {
+		if strings.Contains(host.Name, "master") {
+			masters = append(masters, host)
+		} else if strings.Contains(host.Name, "agent") {
+			agents = append(agents, host)
 		}
 	}
-	return err
+	cli.Masters = masters
+	cli.Agents = agents
+
+	return nil
 }
 
 // GenerateName will generate a new name if one has not been set
@@ -252,35 +186,38 @@ func (cli *CLIProvisioner) generateName() string {
 
 func (cli *CLIProvisioner) waitForNodes() error {
 	if cli.Config.IsKubernetes() {
-		if !cli.IsPrivate() {
-			log.Println("Waiting on nodes to go into ready state...")
-			ready := node.WaitOnReady(cli.Engine.NodeCount(), 10*time.Second, cli.Config.Timeout)
-			cmd := exec.Command("kubectl", "get", "nodes", "-o", "wide")
-			out, _ := cmd.CombinedOutput()
-			log.Printf("%s\n", out)
-			if !ready {
-				return errors.New("Error: Not all nodes in a healthy state")
-			}
-			var version string
-			var err error
-			if cli.Config.IsKubernetes() {
-				version, err = node.Version()
-			}
-			if err != nil {
-				log.Printf("Ready nodes did not return a version: %s", err)
-			}
-			log.Printf("Testing a %s %s cluster...\n", cli.Config.Orchestrator, version)
-		} else {
-			log.Println("This cluster is private")
-			if cli.Engine.ClusterDefinition.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.JumpboxProfile == nil {
-				// TODO: add "bring your own jumpbox to e2e"
-				return errors.New("Error: cannot test a private cluster without provisioning a jumpbox")
-			}
-			log.Printf("Testing a %s private cluster...", cli.Config.Orchestrator)
-			// TODO: create SSH connection and get nodes and k8s version
+		cli.Config.SetKubeConfig()
+		log.Println("Waiting on nodes to go into ready state...")
+		ready := node.WaitOnReady(cli.Engine.NodeCount(), 10*time.Second, cli.Config.Timeout)
+		if ready == false {
+			return errors.New("Error: Not all nodes in a healthy state")
 		}
+		version, err := node.Version()
+		if err != nil {
+			log.Printf("Ready nodes did not return a version: %s", err)
+		}
+		log.Printf("Testing a Kubernetes %s cluster...\n", version)
 	}
 
+	if cli.Config.IsDCOS() {
+		host := fmt.Sprintf("%s.%s.cloudapp.azure.com", cli.Config.Name, cli.Config.Location)
+		user := cli.Engine.ClusterDefinition.Properties.LinuxProfile.AdminUsername
+		log.Printf("SSH Key: %s\n", cli.Config.GetSSHKeyPath())
+		log.Printf("Master Node: %s@%s\n", user, host)
+		log.Printf("SSH Command: ssh -i %s -p 2200 %s@%s", cli.Config.GetSSHKeyPath(), user, host)
+		cluster, err := dcos.NewCluster(cli.Config, cli.Engine)
+		if err != nil {
+			return err
+		}
+		err = cluster.InstallDCOSClient()
+		if err != nil {
+			return fmt.Errorf("Error trying to install dcos client:%s", err)
+		}
+		ready := cluster.WaitForNodes(cli.Engine.NodeCount(), 10*time.Second, cli.Config.Timeout)
+		if ready == false {
+			return errors.New("Error: Not all nodes in a healthy state")
+		}
+	}
 	return nil
 }
 
@@ -289,18 +226,10 @@ func (cli *CLIProvisioner) FetchProvisioningMetrics(path string, cfg *config.Con
 	agentFiles := []string{"/var/log/azure/cluster-provision.log", "/var/log/cloud-init.log",
 		"/var/log/cloud-init-output.log", "/var/log/syslog", "/var/log/azure/custom-script/handler.log",
 		"/opt/m", "/opt/azure/containers/kubelet.sh", "/opt/azure/containers/provision.sh",
-		"/opt/azure/provision-ps.log", "/var/log/azure/kubelet-status.log",
-		"/var/log/azure/docker-status.log", "/var/log/azure/systemd-journald-status.log"}
+		"/opt/azure/provision-ps.log", "/var/log/azure/dnsdump.pcap"}
 	masterFiles := agentFiles
 	masterFiles = append(masterFiles, "/opt/azure/containers/mountetcd.sh", "/opt/azure/containers/setup-etcd.sh", "/opt/azure/containers/setup-etcd.log")
 	hostname := fmt.Sprintf("%s.%s.cloudapp.azure.com", cli.Config.Name, cli.Config.Location)
-	cmd := exec.Command("ssh-agent", "-s")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return errors.Wrapf(err, "Error while trying to start ssh agent \nOutput:%s", out)
-	}
-	authSock := strings.Split(strings.Split(string(out), "=")[1], ";")
-	os.Setenv("SSH_AUTH_SOCK", authSock[0])
 	conn, err := remote.NewConnection(hostname, "22", cli.Engine.ClusterDefinition.Properties.LinuxProfile.AdminUsername, cli.Config.GetSSHKeyPath())
 	if err != nil {
 		return err
@@ -324,35 +253,13 @@ func (cli *CLIProvisioner) FetchProvisioningMetrics(path string, cfg *config.Con
 	}
 	connectString := fmt.Sprintf("%s@%s:/tmp/k8s-*", conn.User, hostname)
 	logsPath := filepath.Join(cfg.CurrentWorkingDir, "_logs", hostname)
-	cmd = exec.Command("scp", "-i", conn.PrivateKeyPath, "-o", "ConnectTimeout=30", "-o", "StrictHostKeyChecking=no", connectString, logsPath)
+	cmd := exec.Command("scp", "-i", conn.PrivateKeyPath, "-o", "ConnectTimeout=30", "-o", "StrictHostKeyChecking=no", connectString, logsPath)
 	util.PrintCommand(cmd)
-	out, err = cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Error output:%s\n", out)
 		return err
 	}
 
-	return nil
-}
-
-// IsPrivate will return true if the cluster has no public IPs
-func (cli *CLIProvisioner) IsPrivate() bool {
-	return cli.Config.IsKubernetes() &&
-		cli.Engine.ExpandedDefinition.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster != nil &&
-		helpers.IsTrueBoolPointer(cli.Engine.ExpandedDefinition.Properties.OrchestratorProfile.KubernetesConfig.PrivateCluster.Enabled)
-}
-
-// FetchActivityLog gets the activity log for the all resource groups used in the provisioner.
-func (cli *CLIProvisioner) FetchActivityLog(acct *azure.Account, logPath string) error {
-	for _, rg := range cli.ResourceGroups {
-		log, err := acct.FetchActivityLog(rg)
-		if err != nil {
-			return errors.Wrapf(err, "cannot fetch activity log for resource group %s", rg)
-		}
-		path := filepath.Join(logPath, fmt.Sprintf("activity-log-%s", rg))
-		if err := ioutil.WriteFile(path, []byte(log), 0644); err != nil {
-			return errors.Wrap(err, "cannot write activity log in file")
-		}
-	}
 	return nil
 }

@@ -1,19 +1,5 @@
 package storage
 
-// Copyright 2017 Microsoft Corporation
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
 import (
 	"bytes"
 	"encoding/json"
@@ -26,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/marstr/guid"
+	"github.com/satori/uuid"
 )
 
 // Operation type. Insert, Delete, Replace etc.
@@ -131,26 +117,14 @@ func (t *TableBatch) MergeEntity(entity *Entity) {
 // the changesets.
 // As per document https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/performing-entity-group-transactions
 func (t *TableBatch) ExecuteBatch() error {
-
-	// Using `github.com/marstr/guid` is in response to issue #947 (https://github.com/Azure/azure-sdk-for-go/issues/947).
-	id, err := guid.NewGUIDs(guid.CreationStrategyVersion1)
-	if err != nil {
-		return err
-	}
-
-	changesetBoundary := fmt.Sprintf("changeset_%s", id.String())
+	changesetBoundary := fmt.Sprintf("changeset_%s", uuid.NewV1())
 	uri := t.Table.tsc.client.getEndpoint(tableServiceName, "$batch", nil)
 	changesetBody, err := t.generateChangesetBody(changesetBoundary)
 	if err != nil {
 		return err
 	}
 
-	id, err = guid.NewGUIDs(guid.CreationStrategyVersion1)
-	if err != nil {
-		return err
-	}
-
-	boundary := fmt.Sprintf("batch_%s", id.String())
+	boundary := fmt.Sprintf("batch_%s", uuid.NewV1())
 	body, err := generateBody(changesetBody, changesetBoundary, boundary)
 	if err != nil {
 		return err
@@ -163,15 +137,15 @@ func (t *TableBatch) ExecuteBatch() error {
 	if err != nil {
 		return err
 	}
-	defer drainRespBody(resp.resp)
+	defer resp.body.Close()
 
-	if err = checkRespCode(resp.resp, []int{http.StatusAccepted}); err != nil {
+	if err = checkRespCode(resp.statusCode, []int{http.StatusAccepted}); err != nil {
 
 		// check which batch failed.
 		operationFailedMessage := t.getFailedOperation(resp.odata.Err.Message.Value)
-		requestID, date, version := getDebugHeaders(resp.resp.Header)
+		requestID, date, version := getDebugHeaders(resp.headers)
 		return AzureStorageServiceError{
-			StatusCode: resp.resp.StatusCode,
+			StatusCode: resp.statusCode,
 			Code:       resp.odata.Err.Code,
 			RequestID:  requestID,
 			Date:       date,

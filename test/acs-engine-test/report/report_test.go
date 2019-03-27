@@ -1,15 +1,14 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package report
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"testing"
 )
 
 func TestReportParse(t *testing.T) {
+
 	jobName := "TestJob"
 	buildNum := 001
 	nDeploys := 4
@@ -23,7 +22,7 @@ func TestReportParse(t *testing.T) {
 	_ = dummy.Process(txt, step, testName, d)
 
 	testReport := "TestReport.json"
-	if err := dummy.CreateTestReport(testReport); err != nil {
+	if err := dummy.CreateTestReport(fmt.Sprintf("%s", testReport)); err != nil {
 		t.Fatal(err)
 	}
 

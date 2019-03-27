@@ -1,14 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package v20170131
 
 import (
 	"encoding/json"
+	"fmt"
 	neturl "net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // ResourcePurchasePlan defines resource plan as required by ARM
@@ -51,7 +47,6 @@ type Properties struct {
 type ServicePrincipalProfile struct {
 	ClientID string `json:"clientId,omitempty"`
 	Secret   string `json:"secret,omitempty"`
-	ObjectID string `json:"objectId,omitempty"`
 }
 
 // CustomProfile specifies custom properties that are used for
@@ -237,7 +232,7 @@ func (o *OrchestratorProfile) UnmarshalJSON(b []byte) error {
 	case strings.EqualFold(orchestratorType, SwarmMode):
 		o.OrchestratorType = SwarmMode
 	default:
-		return errors.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
+		return fmt.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
 	}
 	return nil
 }

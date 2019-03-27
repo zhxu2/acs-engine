@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package vlabs
 
 const (
@@ -18,8 +15,6 @@ const (
 	Kubernetes string = "Kubernetes"
 	// SwarmMode is the string constant for the Swarm Mode orchestrator type
 	SwarmMode string = "SwarmMode"
-	// OpenShift is the string constant for the OpenShift orchestrator type
-	OpenShift string = "OpenShift"
 )
 
 // the OSTypes supported by vlabs
@@ -30,11 +25,9 @@ const (
 
 // the LinuxDistros supported by vlabs
 const (
-	Ubuntu          Distro = "ubuntu"
-	RHEL            Distro = "rhel"
-	CoreOS          Distro = "coreos"
-	AKS             Distro = "aks"
-	AKSDockerEngine Distro = "aks-docker-engine"
+	Ubuntu Distro = "ubuntu"
+	RHEL   Distro = "rhel"
+	CoreOS Distro = "coreos"
 )
 
 // validation values
@@ -76,15 +69,11 @@ const (
 )
 
 var (
-	// NetworkPluginValues holds the valid values for network plugin implementation
-	NetworkPluginValues = [...]string{"", "kubenet", "azure", "cilium", "flannel"}
-
 	// NetworkPolicyValues holds the valid values for a network policy
-	// "azure" and "none" are there for backwards-compatibility
-	NetworkPolicyValues = [...]string{"", "calico", "cilium", "azure", "none"}
+	NetworkPolicyValues = [...]string{"", "none", "azure", "calico"}
 
 	// ContainerRuntimeValues holds the valid values for container runtimes
-	ContainerRuntimeValues = [...]string{"", "docker", "clear-containers", "kata-containers", "containerd"}
+	ContainerRuntimeValues = [...]string{"", "docker", "clear-containers"}
 )
 
 // Kubernetes configuration
@@ -95,17 +84,8 @@ const (
 
 // vlabs default configuration
 const (
-	// DefaultNetworkPlugin defines the network plugin to use by default
-	DefaultNetworkPlugin = "azure"
-	// DefaultNetworkPluginWindows defines the network plugin to use by default for clusters with Windows agent pools
-	DefaultNetworkPluginWindows = "azure"
 	// DefaultNetworkPolicy defines the network policy to use by default
-	DefaultNetworkPolicy = ""
-)
-
-const (
-	// AgentPoolProfileRoleEmpty is the empty role
-	AgentPoolProfileRoleEmpty AgentPoolProfileRole = ""
-	// AgentPoolProfileRoleInfra is the infra role
-	AgentPoolProfileRoleInfra AgentPoolProfileRole = "infra"
+	DefaultNetworkPolicy = "azure"
+	// DefaultNetworkPolicyWindows defines the network policy to use by default for clusters with Windows agent pools
+	DefaultNetworkPolicyWindows = "none"
 )

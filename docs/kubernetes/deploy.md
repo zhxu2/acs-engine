@@ -1,6 +1,6 @@
 # Deploy a Kubernetes Cluster
 
-## Install Prerequisites
+## Install Pre-requisites
 
 All the commands in this guide require both the Azure CLI and `acs-engine`. Follow the [installation instructions to download acs-engine before continuing](../acsengine.md#install-acs-engine) or [compile from source](../acsengine.md#build-from-source).
 
@@ -23,7 +23,7 @@ After the cluster is deployed the upgrade and [scale](scale.md) commands can be 
 * A `dnsPrefix` which forms part of the the hostname for your cluster (e.g. staging, prodwest, blueberry). The DNS prefix must be unique so pick a random name.
 * A location to provision the cluster e.g. `westus2`.
 
-```sh
+```
 $ az account list -o table
 Name                                             CloudName    SubscriptionId                        State    IsDefault
 -----------------------------------------------  -----------  ------------------------------------  -------  -----------
@@ -36,28 +36,28 @@ For this example, the subscription id is `51ac25de-afdg-9201-d923-8d8e8e8e8e8e`,
 
 Run `acs-engine deploy` with the appropriate arguments:
 
-```sh
+```
 $ acs-engine deploy --subscription-id 51ac25de-afdg-9201-d923-8d8e8e8e8e8e \
     --dns-prefix contoso-apple --location westus2 \
-    --api-model examples/kubernetes.json
+    --auto-suffix --api-model examples/kubernetes.json
 
-WARN[0005] apimodel: missing masterProfile.dnsPrefix will use "contoso-apple"
-WARN[0005] --resource-group was not specified. Using the DNS prefix from the apimodel as the resource group name: contoso-apple
+WARN[0005] apimodel: missing masterProfile.dnsPrefix will use "contoso-apple-59769a59"
+WARN[0005] --resource-group was not specified. Using the DNS prefix from the apimodel as the resource group name: contoso-apple-59769a59
 WARN[0008] apimodel: ServicePrincipalProfile was empty, creating application...
 WARN[0017] created application with applicationID (7e2d433f-d039-48b8-87dc-83fa4dfa38d4) and servicePrincipalObjectID (db6167e1-aeed-407a-b218-086589759442).
 WARN[0017] apimodel: ServicePrincipalProfile was empty, assigning role to application...
-INFO[0034] Starting ARM Deployment (contoso-apple-1423145182). This will take some time...
-INFO[0393] Finished ARM Deployment (contoso-apple-1423145182).
+INFO[0034] Starting ARM Deployment (contoso-apple-59769a59-1423145182). This will take some time...
+INFO[0393] Finished ARM Deployment (contoso-apple-59769a59-1423145182).
 ```
 
 `acs-engine` will output Azure Resource Manager (ARM) templates, SSH keys, and a kubeconfig file in `_output/contoso-apple-59769a59` directory:
 
-* `_output/contoso-apple-59769a59/azureuser_rsa`
-* `_output/contoso-apple-59769a59/kubeconfig/kubeconfig.westus2.json`
+   * `_output/contoso-apple-59769a59/azureuser_rsa`
+   * `_output/contoso-apple-59769a59/kubeconfig/kubeconfig.westus2.json`
 
 acs-engine generates kubeconfig files for each possible region. Access the new cluster by using the kubeconfig generated for the cluster's location. This example used `westus2`, so the kubeconfig is `_output/<clustername>/kubeconfig/kubeconfig.westus2.json`:
 
-```sh
+```
 $ KUBECONFIG=_output/contoso-apple-59769a59/kubeconfig/kubeconfig.westus2.json kubectl cluster-info
 Kubernetes master is running at https://contoso-apple-59769a59.westus2.cloudapp.azure.com
 Heapster is running at https://contoso-apple-59769a59.westus2.cloudapp.azure.com/api/v1/proxy/namespaces/kube-system/services/heapster
@@ -67,24 +67,7 @@ kubernetes-dashboard is running at https://contoso-apple-59769a59.westus2.clouda
 To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
 ```
 
-Administrative note: By default, the directory where acs-engine stores cluster configuration (`_output/contoso-apple` above) won't be overwritten as a result of subsequent attempts to deploy a cluster using the same `--dns-prefix`) To re-use the same resource group name repeatedly, include the `--force-overwrite` command line option with your `acs-engine deploy` command. On a related note, include an `--auto-suffix` option to append a randomly generated suffix to the dns-prefix to form the resource group name, for example if your workflow requires a common prefix across multiple cluster deployments. Using the `--auto-suffix` pattern appends a compressed timestamp to ensure a unique cluster name (and thus ensure that each deployment's configuration artifacts will be stored locally under a discrete `_output/<resource-group-name>/` directory).
-
 **Note**: If the cluster is using an existing VNET please see the [Custom VNET](features.md#feat-custom-vnet) feature documentation for additional steps that must be completed after cluster provisioning.
-
-The deploy command lets you override any values under the properties tag (even in arrays) from the cluster definition file without having to update the file. You can use the `--set` flag to do that. For example:
-
-```bash
-acs-engine deploy --resource-group "your-resource-group" \
-  --location "westeurope" \
-  --subscription-id "your-subscription-id" \
-  --api-model "./apimodel.json" \
-  --set masterProfile.dnsPrefix="your-dns-prefix-override" \
-  --set agentPoolProfiles[0].name="your-agentpool-0-name-override" \
-  --set agentPoolProfiles[0].count=1 \
-  --set linuxProfile.ssh.publicKeys[0].keyData="ssh-rsa PUBLICKEY azureuser@linuxvm" \
-  --set servicePrincipalProfile.clientId="spn-client-id" \
-  --set servicePrincipalProfile.secret="spn-client-secret"
-```
 
 <a href="#the-long-way"></a>
 
@@ -98,7 +81,7 @@ If you don't have an SSH key [cluster operators may generate a new one](../ssh.m
 
 ### Step 2: Create a Service Principal
 
-Kubernetes clusters have integrated support for various cloud providers as core functionality. On Azure, acs-engine uses a Service Principal to interact with Azure Resource Manager (ARM). Follow the [instructions](../serviceprincipal.md) to create a new service principal and grant it the necessary IAM role to create Azure resources.
+Kubernetes clusters have integrated support for various cloud providers as core functionality. On Azure, acs-engine uses a Service Principal to interact with Azure Resource Manager (ARM). Follow the instructions to [create a new service principal](../serviceprincipal.md)
 
 ### Step 3: Edit your Cluster Definition
 
@@ -113,61 +96,17 @@ Edit the [simple Kubernetes cluster definition](/examples/kubernetes.json) and f
 
 Optional: attach to an existing virtual network (VNET). Details [here](features.md#feat-custom-vnet)
 
-Note: you can then use the `--set` option of the generate command to override values from the cluster definition file directly in the command line (cf. [Step 4](deploy.md#step-4-generate-the-templates))
-
 ### Step 4: Generate the Templates
 
 The generate command takes a cluster definition and outputs a number of templates which describe your Kubernetes cluster. By default, `generate` will create a new directory named after your cluster nested in the `_output` directory. If my dnsPrefix was `larry` my cluster templates would be found in `_output/larry-`.
 
 Run `acs-engine generate examples/kubernetes.json`
 
-The generate command lets you override values from the cluster definition file without having to update the file. You can use the `--set` flag to do that:
-
-```sh
-acs-engine generate --set linuxProfile.adminUsername=myNewUsername,masterProfile.count=3 clusterdefinition.json
-```
-
-The `--set` flag only supports JSON properties under `properties`. You can also work with array, like the following:
-
-```sh
-acs-engine generate --set agentPoolProfiles[0].count=5,agentPoolProfiles[1].name=myPoolName clusterdefinition.json
-```
-
 ### Step 5: Submit your Templates to Azure Resource Manager (ARM)
 
 [Deploy the output azuredeploy.json and azuredeploy.parameters.json](../acsengine.md#deployment-usage)
+  * To enable the optional network policy enforcement using calico, you have to
+    set the parameter during this step according to this [guide](../kubernetes.md#optional-enable-network-policy-enforcement-using-calico)
 
-* To enable the optional network policy enforcement using calico, you have to set the parameter during this step according to this [guide](../kubernetes.md#optional-enable-network-policy-enforcement-using-calico)
-* To enable the optional network policy enforcement using cilium, you have to set the parameter during this step according to this [guide](../kubernetes.md#optional-enable-network-policy-enforcement-using-cilium)
 
 **Note**: If the cluster is using an existing VNET please see the [Custom VNET](features.md#feat-custom-vnet) feature documentation for additional steps that must be completed after cluster provisioning.
-
-## Checking VM tags
-
-### First we get list of Master and Agent VMs in the cluster
-
-```sh
-az vm list -g <resource group of cluster> -o table
-Name                      ResourceGroup                    Location
-------------------------  -------------------------------  -------------
-k8s-agentpool1-22116803-1       XXXXXXXXXXXX                  southeastasia
-k8s-master-22116803-0           XXXXXXXXXXXX                  southeastasia
-```
-
-### Once we have the VM Names, we can check tags associated with any of the VMs using the command below
-
-```sh
-az vm show -g <resource group of cluster> -n <name of Master or agent VM> --query tags
-```
-
-    Sample JSON out of this command is shown below. This command can also be used to check the acs-engine version which was used to create the cluster
-
-```json
-{
-  "acsengineVersion": "v0.15.0",
-  "creationSource": "acsengine-k8s-master-22116803-0",
-  "orchestrator": "Kubernetes:1.9.5",
-  "poolName": "master",
-  "resourceNameSuffix": "22116803"
-}
-```

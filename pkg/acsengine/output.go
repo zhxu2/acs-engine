@@ -1,19 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package acsengine
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path"
-	"path/filepath"
 	"strconv"
 
 	"github.com/Azure/acs-engine/pkg/api"
-	"github.com/Azure/acs-engine/pkg/helpers"
 	"github.com/Azure/acs-engine/pkg/i18n"
-	"github.com/pkg/errors"
 )
 
 // ArtifactWriter represents the object that writes artifacts
@@ -24,11 +17,11 @@ type ArtifactWriter struct {
 // WriteTLSArtifacts saves TLS certificates and keys to the server filesystem
 func (w *ArtifactWriter) WriteTLSArtifacts(containerService *api.ContainerService, apiVersion, template, parameters, artifactsDir string, certsGenerated bool, parametersOnly bool) error {
 	if len(artifactsDir) == 0 {
-		artifactsDir = fmt.Sprintf("%s-%s", containerService.Properties.OrchestratorProfile.OrchestratorType, containerService.Properties.GetClusterID())
+		artifactsDir = fmt.Sprintf("%s-%s", containerService.Properties.OrchestratorProfile.OrchestratorType, GenerateClusterID(containerService.Properties))
 		artifactsDir = path.Join("_output", artifactsDir)
 	}
 
-	f := &helpers.FileSaver{
+	f := &FileSaver{
 		Translator: w.Translator,
 	}
 
@@ -58,28 +51,27 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *api.ContainerServic
 		return e
 	}
 
-	if !certsGenerated {
-		return nil
-	}
-
-	properties := containerService.Properties
-	if properties.OrchestratorProfile.IsKubernetes() {
-		directory := path.Join(artifactsDir, "kubeconfig")
-		var locations []string
-		if containerService.Location != "" {
-			locations = []string{containerService.Location}
-		} else {
-			locations = helpers.GetAzureLocations()
-		}
-
-		for _, location := range locations {
-			b, gkcerr := GenerateKubeConfig(properties, location)
-			if gkcerr != nil {
-				return gkcerr
+	if certsGenerated {
+		properties := containerService.Properties
+		if properties.OrchestratorProfile.OrchestratorType == api.Kubernetes {
+			directory := path.Join(artifactsDir, "kubeconfig")
+			var locations []string
+			if containerService.Location != "" {
+				locations = []string{containerService.Location}
+			} else {
+				locations = AzureLocations
 			}
-			if e := f.SaveFileString(directory, fmt.Sprintf("kubeconfig.%s.json", location), b); e != nil {
-				return e
+
+			for _, location := range locations {
+				b, gkcerr := GenerateKubeConfig(properties, location)
+				if gkcerr != nil {
+					return gkcerr
+				}
+				if e := f.SaveFileString(directory, fmt.Sprintf("kubeconfig.%s.json", location), b); e != nil {
+					return e
+				}
 			}
+
 		}
 
 		if e := f.SaveFileString(artifactsDir, "ca.key", properties.CertificateProfile.CaPrivateKey); e != nil {
@@ -119,9 +111,6 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *api.ContainerServic
 			return e
 		}
 		for i := 0; i < properties.MasterProfile.Count; i++ {
-			if len(properties.CertificateProfile.EtcdPeerPrivateKeys) <= i || len(properties.CertificateProfile.EtcdPeerCertificates) <= i {
-				return errors.New("missing etcd peer certificate/key pair")
-			}
 			k := "etcdpeer" + strconv.Itoa(i) + ".key"
 			if e := f.SaveFileString(artifactsDir, k, properties.CertificateProfile.EtcdPeerPrivateKeys[i]); e != nil {
 				return e
@@ -131,15 +120,7 @@ func (w *ArtifactWriter) WriteTLSArtifacts(containerService *api.ContainerServic
 				return e
 			}
 		}
-	} else if properties.OrchestratorProfile.IsOpenShift() {
-		masterTarballPath := filepath.Join(artifactsDir, "master.tar.gz")
-		masterBundle := properties.OrchestratorProfile.OpenShiftConfig.ConfigBundles["master"]
-		if err := ioutil.WriteFile(masterTarballPath, masterBundle, 0644); err != nil {
-			return err
-		}
-		nodeTarballPath := filepath.Join(artifactsDir, "node.tar.gz")
-		nodeBundle := properties.OrchestratorProfile.OpenShiftConfig.ConfigBundles["bootstrap"]
-		return ioutil.WriteFile(nodeTarballPath, nodeBundle, 0644)
+
 	}
 
 	return nil

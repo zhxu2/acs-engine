@@ -1,14 +1,10 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package v20160330
 
 import (
 	"encoding/json"
+	"fmt"
 	neturl "net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // ResourcePurchasePlan defines resource plan as required by ARM
@@ -219,7 +215,7 @@ func (o *OrchestratorProfile) UnmarshalJSON(b []byte) error {
 	case strings.EqualFold(orchestratorType, Mesos):
 		o.OrchestratorType = Mesos
 	default:
-		return errors.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
+		return fmt.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
 	}
 	return nil
 }

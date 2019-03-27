@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package promote
 
 import (
@@ -161,8 +158,10 @@ func RunPromoteToFailure(sa StorageAccount, testRunPromToFail DigitalSignalFilte
 
 	if existingFailureStr != testRunPromToFail.FailureStr {
 		// Perform Update of this entity with testRunPromToFail.FailureStr and testRunPromToFail.FailureCount
-		err = updateEntity(entity, testRunPromToFail.FailureCount, testRunPromToFail.FailureStr)
-		return false, err
+		if err = updateEntity(entity, testRunPromToFail.FailureCount, testRunPromToFail.FailureStr); err != nil {
+			return false, err
+		}
+		return false, nil
 	}
 
 	if testRunPromToFail.FailureCount == 0 {

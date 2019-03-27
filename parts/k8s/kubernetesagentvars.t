@@ -3,18 +3,13 @@
     "{{.Name}}StorageAccountsCount": "[add(div(variables('{{.Name}}Count'), variables('maxVMsPerStorageAccount')), mod(add(mod(variables('{{.Name}}Count'), variables('maxVMsPerStorageAccount')),2), add(mod(variables('{{.Name}}Count'), variables('maxVMsPerStorageAccount')),1)))]",
 {{end}}
     "{{.Name}}Count": "[parameters('{{.Name}}Count')]",
-    "{{.Name}}VMNamePrefix": "{{GetAgentVMPrefix .}}",
-{{if .IsWindows}}
-    "winResourceNamePrefix" : "[substring(parameters('nameSuffix'), 0, 5)]",
-{{end}}
-{{if .IsAvailabilitySets}}
     "{{.Name}}Offset": "[parameters('{{.Name}}Offset')]",
-    "{{.Name}}AvailabilitySet": "[concat('{{.Name}}-availabilitySet-', parameters('nameSuffix'))]",
+    "{{.Name}}AvailabilitySet": "[concat('{{.Name}}-availabilitySet-', variables('nameSuffix'))]",
+{{if .IsWindows}}
+    "winResourceNamePrefix" : "[substring(variables('nameSuffix'), 0, 5)]",
+    "{{.Name}}VMNamePrefix": "[concat(variables('winResourceNamePrefix'), variables('orchestratorName'), add(900,variables('{{.Name}}Index')))]",
 {{else}}
-    {{if .IsLowPriorityScaleSet}}
-    "{{.Name}}ScaleSetPriority": "[parameters('{{.Name}}ScaleSetPriority')]",
-    "{{.Name}}ScaleSetEvictionPolicy": "[parameters('{{.Name}}ScaleSetEvictionPolicy')]",
-    {{end}}
+    "{{.Name}}VMNamePrefix": "[concat(variables('orchestratorName'), '-{{.Name}}-', variables('nameSuffix'), '-')]", 
 {{end}}
     "{{.Name}}VMSize": "[parameters('{{.Name}}VMSize')]",
 {{if .IsCustomVNET}}
@@ -29,5 +24,4 @@
     "{{.Name}}osImageSKU": "[parameters('{{.Name}}osImageSKU')]",
     "{{.Name}}osImagePublisher": "[parameters('{{.Name}}osImagePublisher')]",
     "{{.Name}}osImageVersion": "[parameters('{{.Name}}osImageVersion')]",
-    "{{.Name}}osImageName": "[parameters('{{.Name}}osImageName')]",
-    "{{.Name}}osImageResourceGroup": "[parameters('{{.Name}}osImageResourceGroup')]",
+

@@ -1,13 +1,9 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package v20170701
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // The validate tag is used for validation
@@ -61,7 +57,6 @@ type Properties struct {
 type ServicePrincipalProfile struct {
 	ClientID          string             `json:"clientId,omitempty" validate:"required"`
 	Secret            string             `json:"secret,omitempty"`
-	ObjectID          string             `json:"objectId,omitempty"`
 	KeyvaultSecretRef *KeyvaultSecretRef `json:"keyvaultSecretRef,omitempty"`
 }
 
@@ -266,7 +261,7 @@ func (o *OrchestratorProfile) UnmarshalJSON(b []byte) error {
 	case strings.EqualFold(orchestratorType, DockerCE):
 		o.OrchestratorType = DockerCE
 	default:
-		return errors.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
+		return fmt.Errorf("OrchestratorType has unknown orchestrator: %s", orchestratorType)
 	}
 	return nil
 }

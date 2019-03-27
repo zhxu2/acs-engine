@@ -28,23 +28,18 @@ echo "==> Running static validations <=="
 gometalinter \
   --disable-all \
   --enable deadcode \
+  --severity deadcode:error \
   --enable gofmt \
-  --enable goimports \
-  --enable gosimple \
   --enable ineffassign \
   --enable misspell \
-  --enable unused \
   --enable vet \
   --tests \
   --vendor \
-  --deadline 120s \
+  --deadline 60s \
   --skip test/i18n \
   --skip pkg/test \
-  --exclude pkg/i18n/i18n.go \
   --exclude pkg/i18n/translations.go \
   --exclude pkg/acsengine/templates.go \
-  --exclude pkg/openshift/certgen/release39/templates/bindata.go \
-  --exclude pkg/openshift/certgen/unstable/templates/bindata.go \
   ./... || exit_code=1
 
 echo
@@ -59,8 +54,6 @@ gometalinter \
   --deadline 60s \
   --exclude pkg/i18n/translations.go \
   --exclude pkg/acsengine/templates.go \
-  --exclude pkg/openshift/certgen/release39/templates/bindata.go \
-  --exclude pkg/openshift/certgen/unstable/templates/bindata.go \
   ./... || exit_code=1
 
 exit $exit_code

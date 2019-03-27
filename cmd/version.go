@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package cmd
 
 import (
@@ -25,12 +22,6 @@ var (
 	outputFormatOptions = []string{"human", "json"}
 	outputFormat        string
 	version             versionInfo
-)
-
-const (
-	versionName             = "version"
-	versionShortDescription = "Print the version of ACS-Engine"
-	versionLongDescription  = "Print the version of ACS-Engine"
 )
 
 type versionInfo struct {
@@ -77,9 +68,9 @@ func getVersion(outputType string) string {
 
 func newVersionCmd() *cobra.Command {
 	versionCmd := &cobra.Command{
-		Use:   versionName,
-		Short: versionShortDescription,
-		Long:  versionLongDescription,
+		Use:   "version",
+		Short: "Print the version of ACS-Engine",
+		Long:  "Print the version of ACS-Engine",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(getVersion(outputFormat))

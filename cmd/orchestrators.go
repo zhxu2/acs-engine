@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package cmd
 
 import (
@@ -12,25 +9,24 @@ import (
 )
 
 const (
-	orchestratorsName             = "orchestrators"
-	orchestratorsShortDescription = "Display info about supported orchestrators"
-	orchestratorsLongDescription  = "Display supported versions and upgrade versions for each orchestrator"
+	cmdName             = "orchestrators"
+	cmdShortDescription = "provide info about supported orchestrators"
+	cmdLongDescription  = "provide info about versions of supported orchestrators"
 )
 
 type orchestratorsCmd struct {
 	// user input
 	orchestrator string
 	version      string
-	windows      bool
 }
 
 func newOrchestratorsCmd() *cobra.Command {
 	oc := orchestratorsCmd{}
 
 	command := &cobra.Command{
-		Use:   orchestratorsName,
-		Short: orchestratorsShortDescription,
-		Long:  orchestratorsLongDescription,
+		Use:   cmdName,
+		Short: cmdShortDescription,
+		Long:  cmdLongDescription,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return oc.run(cmd, args)
 		},
@@ -39,13 +35,12 @@ func newOrchestratorsCmd() *cobra.Command {
 	f := command.Flags()
 	f.StringVar(&oc.orchestrator, "orchestrator", "", "orchestrator name (optional) ")
 	f.StringVar(&oc.version, "version", "", "orchestrator version (optional)")
-	f.BoolVar(&oc.windows, "windows", false, "orchestrator platform (optional, applies to Kubernetes only)")
 
 	return command
 }
 
 func (oc *orchestratorsCmd) run(cmd *cobra.Command, args []string) error {
-	orchs, err := api.GetOrchestratorVersionProfileListVLabs(oc.orchestrator, oc.version, oc.windows)
+	orchs, err := api.GetOrchestratorVersionProfileListVLabs(oc.orchestrator, oc.version)
 	if err != nil {
 		return err
 	}

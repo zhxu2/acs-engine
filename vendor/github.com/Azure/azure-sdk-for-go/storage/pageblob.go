@@ -1,19 +1,5 @@
 package storage
 
-// Copyright 2017 Microsoft Corporation
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
 import (
 	"encoding/xml"
 	"errors"
@@ -87,10 +73,10 @@ func (b *Blob) modifyRange(blobRange BlobRange, bytes io.Reader, options *PutPag
 		return errors.New("the value for rangeEnd must be greater than or equal to rangeStart")
 	}
 	if blobRange.Start%512 != 0 {
-		return errors.New("the value for rangeStart must be a multiple of 512")
+		return errors.New("the value for rangeStart must be a modulus of 512")
 	}
 	if blobRange.End%512 != 511 {
-		return errors.New("the value for rangeEnd must be a multiple of 512 - 1")
+		return errors.New("the value for rangeEnd must be a modulus of 511")
 	}
 
 	params := url.Values{"comp": {"page"}}
@@ -121,8 +107,9 @@ func (b *Blob) modifyRange(blobRange BlobRange, bytes io.Reader, options *PutPag
 	if err != nil {
 		return err
 	}
-	defer drainRespBody(resp)
-	return checkRespCode(resp, []int{http.StatusCreated})
+	readAndCloseBody(resp.body)
+
+	return checkRespCode(resp.statusCode, []int{http.StatusCreated})
 }
 
 // GetPageRangesOptions includes the options for a get page ranges operation
@@ -146,7 +133,7 @@ func (b *Blob) GetPageRanges(options *GetPageRangesOptions) (GetPageRangesRespon
 		params = addTimeout(params, options.Timeout)
 		params = addSnapshot(params, options.Snapshot)
 		if options.PreviousSnapshot != nil {
-			params.Add("prevsnapshot", timeRFC3339Formatted(*options.PreviousSnapshot))
+			params.Add("prevsnapshot", timeRfc1123Formatted(*options.PreviousSnapshot))
 		}
 		if options.Range != nil {
 			headers["Range"] = options.Range.String()
@@ -160,20 +147,18 @@ func (b *Blob) GetPageRanges(options *GetPageRangesOptions) (GetPageRangesRespon
 	if err != nil {
 		return out, err
 	}
-	defer drainRespBody(resp)
+	defer resp.body.Close()
 
-	if err = checkRespCode(resp, []int{http.StatusOK}); err != nil {
+	if err = checkRespCode(resp.statusCode, []int{http.StatusOK}); err != nil {
 		return out, err
 	}
-	err = xmlUnmarshal(resp.Body, &out)
+	err = xmlUnmarshal(resp.body, &out)
 	return out, err
 }
 
 // PutPageBlob initializes an empty page blob with specified name and maximum
 // size in bytes (size must be aligned to a 512-byte boundary). A page blob must
 // be created using this method before writing pages.
-//
-// See CreateBlockBlobFromReader for more info on creating blobs.
 //
 // See https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/Put-Blob
 func (b *Blob) PutPageBlob(options *PutBlobOptions) error {
@@ -199,5 +184,6 @@ func (b *Blob) PutPageBlob(options *PutBlobOptions) error {
 	if err != nil {
 		return err
 	}
-	return b.respondCreation(resp, BlobTypePage)
+	readAndCloseBody(resp.body)
+	return checkRespCode(resp.statusCode, []int{http.StatusCreated})
 }

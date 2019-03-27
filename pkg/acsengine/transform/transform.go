@@ -1,16 +1,12 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package transform
 
 import (
 	"fmt"
 	"log"
-	"runtime"
 	"sort"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-04-01/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,7 +28,6 @@ const (
 	createOptionFieldName          = "createOption"
 	tagsFieldName                  = "tags"
 	managedDiskFieldName           = "managedDisk"
-	outputsFieldName               = "outputs"
 
 	// ARM resource Types
 	nsgResourceType  = "Microsoft.Network/networkSecurityGroups"
@@ -41,12 +36,10 @@ const (
 	vmssResourceType = "Microsoft.Compute/virtualMachineScaleSets"
 	vmExtensionType  = "Microsoft.Compute/virtualMachines/extensions"
 	nicResourceType  = "Microsoft.Network/networkInterfaces"
-	vnetResourceType = "Microsoft.Network/virtualNetworks"
 
 	// resource ids
-	nsgID  = "nsgID"
-	rtID   = "routeTableID"
-	vnetID = "vnetID"
+	nsgID = "nsgID"
+	rtID  = "routeTableID"
 )
 
 // Translator defines all required interfaces for i18n.Translator.
@@ -104,55 +97,6 @@ func (t *Transformer) NormalizeForVMSSScaling(logger *logrus.Entry, templateMap 
 	return nil
 }
 
-// NormalizeForOpenShiftVMASScalingUp takes a template and removes elements that
-// are unwanted in a OpenShift VMAS scale up/down case
-func (t *Transformer) NormalizeForOpenShiftVMASScalingUp(logger *logrus.Entry, agentPoolName string, templateMap map[string]interface{}) (err error) {
-	defer func() {
-		// catch a failed type assertion and return it as an error.  This saves
-		// needing to write `if foo, ok := bar.(*Baz); ok` everywhere below.
-		if r := recover(); r != nil {
-			e, ok := r.(*runtime.TypeAssertionError)
-			if ok {
-				err = e
-			} else {
-				panic(r)
-			}
-		}
-	}()
-
-	isNeeded := func(name interface{}) bool {
-		return strings.Contains(name.(string), agentPoolName+"VMNamePrefix")
-	}
-
-	// only include resources including <agentPoolName>VMNamePrefix in their
-	// name (VM, VM extension, NIC).
-	resources := []interface{}{}
-	for _, res := range templateMap[resourcesFieldName].([]interface{}) {
-		res := res.(map[string]interface{})
-
-		if !isNeeded(res[nameFieldName]) {
-			continue
-		}
-
-		// remove dependencies to removed resources
-		depends := []interface{}{}
-		for _, depend := range res[dependsOnFieldName].([]interface{}) {
-			if isNeeded(depend) {
-				depends = append(depends, depend)
-			}
-		}
-		res[dependsOnFieldName] = depends
-
-		resources = append(resources, res)
-	}
-	templateMap[resourcesFieldName] = resources
-
-	// remove all outputs: they may depend on deleted resources
-	templateMap[outputsFieldName] = map[string]interface{}{}
-
-	return
-}
-
 // NormalizeForK8sVMASScalingUp takes a template and removes elements that are unwanted in a K8s VMAS scale up/down case
 func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templateMap map[string]interface{}) error {
 	if err := t.NormalizeMasterResourcesForScaling(logger, templateMap); err != nil {
@@ -160,7 +104,6 @@ func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templat
 	}
 	rtIndex := -1
 	nsgIndex := -1
-	vnetIndex := -1
 	resources := templateMap[resourcesFieldName].([]interface{})
 	for index, resource := range resources {
 		resourceMap, ok := resource.(map[string]interface{})
@@ -170,10 +113,7 @@ func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templat
 		}
 
 		resourceType, ok := resourceMap[typeFieldName].(string)
-		resourceName := resourceMap[nameFieldName].(string)
-
-		if ok && resourceType == nsgResourceType && !strings.Contains(resourceName, "variables('jumpboxNetworkSecurityGroupName')") {
-
+		if ok && resourceType == nsgResourceType {
 			if nsgIndex != -1 {
 				err := t.Translator.Errorf("Found 2 resources with type %s in the template. There should only be 1", nsgResourceType)
 				logger.Errorf(err.Error())
@@ -189,14 +129,6 @@ func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templat
 			}
 			rtIndex = index
 		}
-		if ok && resourceType == vnetResourceType {
-			if vnetIndex != -1 {
-				err := t.Translator.Errorf("Found 2 resources with type %s in the template. There should only be 1", vnetResourceType)
-				logger.Warnf(err.Error())
-				return err
-			}
-			vnetIndex = index
-		}
 
 		dependencies, ok := resourceMap[dependsOnFieldName].([]interface{})
 		if !ok {
@@ -206,8 +138,7 @@ func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templat
 		for dIndex := len(dependencies) - 1; dIndex >= 0; dIndex-- {
 			dependency := dependencies[dIndex].(string)
 			if strings.Contains(dependency, nsgResourceType) || strings.Contains(dependency, nsgID) ||
-				strings.Contains(dependency, rtResourceType) || strings.Contains(dependency, rtID) ||
-				strings.Contains(dependency, vnetResourceType) || strings.Contains(dependency, vnetID) {
+				strings.Contains(dependency, rtResourceType) || strings.Contains(dependency, rtID) {
 				dependencies = append(dependencies[:dIndex], dependencies[dIndex+1:]...)
 			}
 		}
@@ -225,17 +156,11 @@ func (t *Transformer) NormalizeForK8sVMASScalingUp(logger *logrus.Entry, templat
 		logger.Errorf(err.Error())
 		return err
 	}
-
 	if rtIndex == -1 {
 		logger.Infof("Found no resources with type %s in the template.", rtResourceType)
 	} else {
 		indexesToRemove = append(indexesToRemove, rtIndex)
 	}
-
-	if vnetIndex != -1 {
-		indexesToRemove = append(indexesToRemove, vnetIndex)
-	}
-
 	indexesToRemove = append(indexesToRemove, nsgIndex)
 	templateMap[resourcesFieldName] = removeIndexesFromArray(resources, indexesToRemove)
 
@@ -302,7 +227,7 @@ func (t *Transformer) NormalizeMasterResourcesForScaling(logger *logrus.Entry, t
 			delete(hardwareProfile, vmSizeFieldName)
 		}
 
-		if !t.removeCustomData(logger, resourceProperties) || !t.removeDataDisks(logger, resourceProperties) || !t.removeImageReference(logger, resourceProperties) {
+		if !t.removeCustomData(logger, resourceProperties) || !t.removeImageReference(logger, resourceProperties) {
 			continue
 		}
 	}
@@ -320,19 +245,6 @@ func (t *Transformer) removeCustomData(logger *logrus.Entry, resourceProperties 
 
 	if osProfile[customDataFieldName] != nil {
 		delete(osProfile, customDataFieldName)
-	}
-	return ok
-}
-
-func (t *Transformer) removeDataDisks(logger *logrus.Entry, resourceProperties map[string]interface{}) bool {
-	storageProfile, ok := resourceProperties[storageProfileFieldName].(map[string]interface{})
-	if !ok {
-		logger.Warnf("Template improperly formatted. Could not find: %s", storageProfileFieldName)
-		return ok
-	}
-
-	if storageProfile[dataDisksFieldName] != nil {
-		delete(storageProfile, dataDisksFieldName)
 	}
 	return ok
 }
@@ -418,7 +330,8 @@ func (t *Transformer) NormalizeResourcesForK8sMasterUpgrade(logger *logrus.Entry
 				managedDisk := compute.ManagedDiskParameters{}
 				id := "[concat('/subscriptions/', variables('subscriptionId'), '/resourceGroups/', variables('resourceGroup'),'/providers/Microsoft.Compute/disks/', variables('masterVMNamePrefix'), copyIndex(variables('masterOffset')),'-etcddisk')]"
 				managedDisk.ID = &id
-				diskInterface := &managedDisk
+				var diskInterface interface{}
+				diskInterface = &managedDisk
 				dataDisk[managedDiskFieldName] = diskInterface
 			}
 		}
@@ -435,7 +348,7 @@ func (t *Transformer) NormalizeResourcesForK8sMasterUpgrade(logger *logrus.Entry
 
 			logger.Infoln(fmt.Sprintf("agentPoolsToPreserve: %v...", agentPoolsToPreserve))
 
-			if len(agentPoolsToPreserve) == 0 || !agentPoolsToPreserve[poolName] {
+			if agentPoolsToPreserve == nil || len(agentPoolsToPreserve) == 0 || agentPoolsToPreserve[poolName] != true {
 				logger.Infoln(fmt.Sprintf("Removing agent pool: %s, resource: %s from template", poolName, resourceName))
 				if len(filteredResources) > 0 {
 					filteredResources = filteredResources[:len(filteredResources)-1]
@@ -451,12 +364,12 @@ func (t *Transformer) NormalizeResourcesForK8sMasterUpgrade(logger *logrus.Entry
 
 			removeExtension := true
 			for poolName, preserve := range agentPoolsToPreserve {
-				if strings.Contains(resourceName, "variables('"+poolName) && preserve {
+				if strings.Contains(resourceName, "variables('"+poolName) && preserve == true {
 					removeExtension = false
 				}
 			}
 
-			if removeExtension {
+			if removeExtension == true {
 				logger.Infoln(fmt.Sprintf("Removing extension: %s from template", resourceName))
 				if len(filteredResources) > 0 {
 					filteredResources = filteredResources[:len(filteredResources)-1]

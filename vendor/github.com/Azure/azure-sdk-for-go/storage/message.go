@@ -1,19 +1,5 @@
 package storage
 
-// Copyright 2017 Microsoft Corporation
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
 import (
 	"encoding/xml"
 	"fmt"
@@ -78,16 +64,13 @@ func (m *Message) Put(options *PutMessageOptions) error {
 	if err != nil {
 		return err
 	}
-	defer drainRespBody(resp)
-	err = checkRespCode(resp, []int{http.StatusCreated})
+	defer readAndCloseBody(resp.body)
+
+	err = xmlUnmarshal(resp.body, m)
 	if err != nil {
 		return err
 	}
-	err = xmlUnmarshal(resp.Body, m)
-	if err != nil {
-		return err
-	}
-	return nil
+	return checkRespCode(resp.statusCode, []int{http.StatusCreated})
 }
 
 // UpdateMessageOptions is the set of options can be specified for Update Messsage
@@ -114,8 +97,7 @@ func (m *Message) Update(options *UpdateMessageOptions) error {
 		return err
 	}
 	headers["Content-Length"] = strconv.Itoa(nn)
-	// visibilitytimeout is required for Update (zero or greater) so set the default here
-	query.Set("visibilitytimeout", "0")
+
 	if options != nil {
 		if options.VisibilityTimeout != 0 {
 			query.Set("visibilitytimeout", strconv.Itoa(options.VisibilityTimeout))
@@ -129,10 +111,10 @@ func (m *Message) Update(options *UpdateMessageOptions) error {
 	if err != nil {
 		return err
 	}
-	defer drainRespBody(resp)
+	defer readAndCloseBody(resp.body)
 
-	m.PopReceipt = resp.Header.Get("x-ms-popreceipt")
-	nextTimeStr := resp.Header.Get("x-ms-time-next-visible")
+	m.PopReceipt = resp.headers.Get("x-ms-popreceipt")
+	nextTimeStr := resp.headers.Get("x-ms-time-next-visible")
 	if nextTimeStr != "" {
 		nextTime, err := time.Parse(time.RFC1123, nextTimeStr)
 		if err != nil {
@@ -141,7 +123,7 @@ func (m *Message) Update(options *UpdateMessageOptions) error {
 		m.NextVisible = TimeRFC1123(nextTime)
 	}
 
-	return checkRespCode(resp, []int{http.StatusNoContent})
+	return checkRespCode(resp.statusCode, []int{http.StatusNoContent})
 }
 
 // Delete operation deletes the specified message.
@@ -161,8 +143,8 @@ func (m *Message) Delete(options *QueueServiceOptions) error {
 	if err != nil {
 		return err
 	}
-	defer drainRespBody(resp)
-	return checkRespCode(resp, []int{http.StatusNoContent})
+	readAndCloseBody(resp.body)
+	return checkRespCode(resp.statusCode, []int{http.StatusNoContent})
 }
 
 type putMessageRequest struct {

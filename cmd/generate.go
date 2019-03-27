@@ -1,9 +1,7 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// Licensed under the MIT license.
-
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,7 +12,6 @@ import (
 	"github.com/Azure/acs-engine/pkg/api"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	"github.com/leonelquinteros/gotext"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -30,9 +27,9 @@ type generateCmd struct {
 	outputDirectory   string // can be auto-determined from clusterDefinition
 	caCertificatePath string
 	caPrivateKeyPath  string
+	classicMode       bool
 	noPrettyPrint     bool
 	parametersOnly    bool
-	set               []string
 
 	// derived
 	containerService *api.ContainerService
@@ -51,25 +48,16 @@ func newGenerateCmd() *cobra.Command {
 			if err := gc.validate(cmd, args); err != nil {
 				log.Fatalf(fmt.Sprintf("error validating generateCmd: %s", err.Error()))
 			}
-
-			if err := gc.mergeAPIModel(); err != nil {
-				log.Fatalf(fmt.Sprintf("error merging API model in generateCmd: %s", err.Error()))
-			}
-
-			if err := gc.loadAPIModel(cmd, args); err != nil {
-				log.Fatalf(fmt.Sprintf("error loading API model in generateCmd: %s", err.Error()))
-			}
-
 			return gc.run()
 		},
 	}
 
 	f := generateCmd.Flags()
-	f.StringVarP(&gc.apimodelPath, "api-model", "m", "", "path to the apimodel file")
-	f.StringVarP(&gc.outputDirectory, "output-directory", "o", "", "output directory (derived from FQDN if absent)")
+	f.StringVar(&gc.apimodelPath, "api-model", "", "")
+	f.StringVar(&gc.outputDirectory, "output-directory", "", "output directory (derived from FQDN if absent)")
 	f.StringVar(&gc.caCertificatePath, "ca-certificate-path", "", "path to the CA certificate to use for Kubernetes PKI assets")
 	f.StringVar(&gc.caPrivateKeyPath, "ca-private-key-path", "", "path to the CA private key to use for Kubernetes PKI assets")
-	f.StringArrayVar(&gc.set, "set", []string{}, "set values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
+	f.BoolVar(&gc.classicMode, "classic-mode", false, "enable classic parameters and outputs")
 	f.BoolVar(&gc.noPrettyPrint, "no-pretty-print", false, "skip pretty printing the output")
 	f.BoolVar(&gc.parametersOnly, "parameters-only", false, "only output parameters files")
 
@@ -77,11 +65,13 @@ func newGenerateCmd() *cobra.Command {
 }
 
 func (gc *generateCmd) validate(cmd *cobra.Command, args []string) error {
+	var caCertificateBytes []byte
+	var caKeyBytes []byte
 	var err error
 
 	gc.locale, err = i18n.LoadTranslations()
 	if err != nil {
-		return errors.Wrap(err, "error loading translation files")
+		return fmt.Errorf(fmt.Sprintf("error loading translation files: %s", err.Error()))
 	}
 
 	if gc.apimodelPath == "" {
@@ -97,35 +87,8 @@ func (gc *generateCmd) validate(cmd *cobra.Command, args []string) error {
 	}
 
 	if _, err := os.Stat(gc.apimodelPath); os.IsNotExist(err) {
-		return errors.Errorf("specified api model does not exist (%s)", gc.apimodelPath)
+		return fmt.Errorf(fmt.Sprintf("specified api model does not exist (%s)", gc.apimodelPath))
 	}
-
-	return nil
-}
-
-func (gc *generateCmd) mergeAPIModel() error {
-	var err error
-	// if --set flag has been used
-	if gc.set != nil && len(gc.set) > 0 {
-		m := make(map[string]transform.APIModelValue)
-		transform.MapValues(m, gc.set)
-
-		// overrides the api model and generates a new file
-		gc.apimodelPath, err = transform.MergeValuesWithAPIModel(gc.apimodelPath, m)
-		if err != nil {
-			return errors.Wrap(err, "error merging --set values with the api model")
-		}
-
-		log.Infoln(fmt.Sprintf("new api model file has been generated during merge: %s", gc.apimodelPath))
-	}
-
-	return nil
-}
-
-func (gc *generateCmd) loadAPIModel(cmd *cobra.Command, args []string) error {
-	var caCertificateBytes []byte
-	var caKeyBytes []byte
-	var err error
 
 	apiloader := &api.Apiloader{
 		Translator: &i18n.Translator{
@@ -134,7 +97,7 @@ func (gc *generateCmd) loadAPIModel(cmd *cobra.Command, args []string) error {
 	}
 	gc.containerService, gc.apiVersion, err = apiloader.LoadContainerServiceFromFile(gc.apimodelPath, true, false, nil)
 	if err != nil {
-		return errors.Wrap(err, "error parsing the api model")
+		return fmt.Errorf(fmt.Sprintf("error parsing the api model: %s", err.Error()))
 	}
 
 	if gc.outputDirectory == "" {
@@ -152,10 +115,10 @@ func (gc *generateCmd) loadAPIModel(cmd *cobra.Command, args []string) error {
 	}
 	if gc.caCertificatePath != "" {
 		if caCertificateBytes, err = ioutil.ReadFile(gc.caCertificatePath); err != nil {
-			return errors.Wrap(err, "failed to read CA certificate file")
+			return fmt.Errorf(fmt.Sprintf("failed to read CA certificate file: %s", err.Error()))
 		}
 		if caKeyBytes, err = ioutil.ReadFile(gc.caPrivateKeyPath); err != nil {
-			return errors.Wrap(err, "failed to read CA private key file")
+			return fmt.Errorf(fmt.Sprintf("failed to read CA private key file: %s", err.Error()))
 		}
 
 		prop := gc.containerService.Properties
@@ -165,7 +128,6 @@ func (gc *generateCmd) loadAPIModel(cmd *cobra.Command, args []string) error {
 		prop.CertificateProfile.CaCertificate = string(caCertificateBytes)
 		prop.CertificateProfile.CaPrivateKey = string(caKeyBytes)
 	}
-
 	return nil
 }
 
@@ -177,17 +139,12 @@ func (gc *generateCmd) run() error {
 			Locale: gc.locale,
 		},
 	}
-	templateGenerator, err := acsengine.InitializeTemplateGenerator(ctx)
+	templateGenerator, err := acsengine.InitializeTemplateGenerator(ctx, gc.classicMode)
 	if err != nil {
-		log.Fatalf("failed to initialize template generator: %s", err.Error())
+		log.Fatalln("failed to initialize template generator: %s", err.Error())
 	}
 
-	certsGenerated, err := gc.containerService.SetPropertiesDefaults(false, false)
-	if err != nil {
-		log.Fatalf("error in SetPropertiesDefaults template %s: %s", gc.apimodelPath, err.Error())
-		os.Exit(1)
-	}
-	template, parameters, err := templateGenerator.GenerateTemplate(gc.containerService, acsengine.DefaultGeneratorCode, BuildTag)
+	template, parameters, certsGenerated, err := templateGenerator.GenerateTemplate(gc.containerService, acsengine.DefaultGeneratorCode, false)
 	if err != nil {
 		log.Fatalf("error generating template %s: %s", gc.apimodelPath, err.Error())
 		os.Exit(1)

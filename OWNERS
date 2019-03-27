@@ -1,6 +1,4 @@
-approvers:
-- brendandburns
-- CecileRobertMichon
-- jackfrancis
-- mboersma
-- tariq1890
+maintainers:
+  - anhowe
+  - colemickens
+  - seanknox

@@ -9,7 +9,7 @@
 				"description": "Artifacts Location - URL"
 			}
         },
-		"apiVersionCompute": {
+		"apiVersionDefault": {
 			"type": "string",
 			"minLength": 1,
 			"metadata": {
@@ -21,13 +21,6 @@
 			"minLength": 1,
 			"metadata": {
 				"description": "Name of the vm to run the "
-			}
-		},
-		"targetVMType":{
-			"type": "string",
-			"minLength": 1,
-			"metadata": {
-				"description": "Type of the vm to run the extension: master or agent "
 			}
 		},
 		"extensionParameters": {
@@ -50,11 +43,11 @@
    },
    "resources": [  
 	{
-      "apiVersion": "[parameters('apiVersionCompute')]",
+      "apiVersion": "[parameters('apiVersionDefault')]",
       "dependsOn": [],
       "location": "[resourceGroup().location]",
       "type": "Microsoft.Compute/virtualMachines/extensions",
-	  "name": "[concat(parameters('targetVMName'),'/cse', '-', parameters('targetVMType'), '-', parameters('vmIndex'))]", 
+	  "name": "[concat(parameters('targetVMName'),'/cse', parameters('vmIndex'))]",
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
         "type": "CustomScript",
