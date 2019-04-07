@@ -4,7 +4,7 @@ This is walkthrough is to help you get start with Azure Active Directory(AAD) in
 
 [OpenID Connect](http://openid.net/connect/) is a simple identity layer built on top of the OAuth 2.0 protocol, and it is supported by both AAD and Kubernetes. Here we're going to use OpenID Connect as the communication protocol.
 
-Please also refer to [Azure Active Directory plugin for client authentication](https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/client-go/plugin/pkg/client/auth/azure/README.md) in Kubernetes repo for more details abount OpenID Connect and AAD support in upstream.
+Please also refer to [Azure Active Directory plugin for client authentication](https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/client-go/plugin/pkg/client/auth/azure/README.md) in Kubernetes repo for more details about OpenID Connect and AAD support in upstream.
 
 ## Prerequisites
 1. An Azure Active Directory tenant, will refer as `AAD Tenant`. You can use the tenant for your Azure subscription;
@@ -57,7 +57,7 @@ See [enabling cluster-admin](#enabling-cluster-admin) below.
 
 #### Enabling cluster admin
 
-To enable authorization, you need to add a cluster admin role account, and add your user to that account. 
+To enable authorization, you need to add a cluster admin role account, and add your user to that account.
 
 The user name would be in form of `IssuerUrl#ObjectID` format.
 
@@ -92,7 +92,7 @@ At which point you should be able to use any Kubernetes commands to administer t
 
 You can also optionally add groups into your admin role
 
-For example, if your `IssuerUrl` is `https://sts.windows.net/e2917176-1632-47a0-ad18-671d485757a3/`, and your Group `ObjectID` is `7d04bcd3-3c48-49ab-a064-c0b7d69896da`, the command would be: 
+For example, if your `IssuerUrl` is `https://sts.windows.net/e2917176-1632-47a0-ad18-671d485757a3/`, and your Group `ObjectID` is `7d04bcd3-3c48-49ab-a064-c0b7d69896da`, the command would be:
 
 ```sh
 kubectl create clusterrolebinding aad-default-group-cluster-admin-binding --clusterrole=cluster-admin --group=7d04bcd3-3c48-49ab-a064-c0b7d69896da
@@ -123,7 +123,7 @@ And to test that user's login
 kubectl get pods --user=user1
 ```
 
-Now you'll be prompted to login again, you can try logining with another AAD user account. 
+Now you'll be prompted to login again, you can try logining with another AAD user account.
 The login would succeed, but later you can see following message since server denies access:
 ```
 Error from server (Forbidden): User "https://sts.windows.net/{tenantID}/#{objectID}" cannot list pods in the namespace "default". (get pods)

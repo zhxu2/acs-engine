@@ -1,23 +1,36 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package cmd
 
 import (
-	"github.com/Azure/acs-engine/pkg/armhelpers"
+	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
 
+	"github.com/Azure/acs-engine/pkg/api"
+	"github.com/Azure/acs-engine/pkg/api/vlabs"
+	"github.com/Azure/acs-engine/pkg/armhelpers"
+	"github.com/Azure/acs-engine/pkg/helpers"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/satori/go.uuid"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	flag "github.com/spf13/pflag"
+	ini "gopkg.in/ini.v1"
 )
 
 const (
 	rootName             = "acs-engine"
 	rootShortDescription = "ACS-Engine deploys and manages container orchestrators in Azure"
-	rootLongDescription  = "ACS-Engine deploys and manages Kubernetes, Swarm Mode, and DC/OS clusters in Azure"
+	rootLongDescription  = "ACS-Engine deploys and manages Kubernetes, OpenShift, Swarm Mode, and DC/OS clusters in Azure"
 )
 
 var (
-	debug bool
+	debug            bool
+	dumpDefaultModel bool
 )
 
 // NewRootCmd returns the root command for ACS-Engine.
@@ -31,10 +44,19 @@ func NewRootCmd() *cobra.Command {
 				log.SetLevel(log.DebugLevel)
 			}
 		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if dumpDefaultModel {
+				return writeDefaultModel(cmd.OutOrStdout())
+			}
+			return cmd.Usage()
+		},
 	}
 
 	p := rootCmd.PersistentFlags()
 	p.BoolVar(&debug, "debug", false, "enable verbose debug logs")
+
+	f := rootCmd.Flags()
+	f.BoolVar(&dumpDefaultModel, "show-default-model", false, "Dump the default API model to stdout")
 
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newGenerateCmd())
@@ -42,8 +64,33 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newOrchestratorsCmd())
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newScaleCmd())
+	rootCmd.AddCommand(newDcosUpgradeCmd())
+	rootCmd.AddCommand(getCompletionCmd(rootCmd))
 
 	return rootCmd
+}
+
+func writeDefaultModel(out io.Writer) error {
+	meta, p := api.LoadDefaultContainerServiceProperties()
+	type withMeta struct {
+		APIVersion string            `json:"apiVersion"`
+		Properties *vlabs.Properties `json:"properties"`
+	}
+
+	b, err := json.MarshalIndent(withMeta{APIVersion: meta.APIVersion, Properties: p}, "", "\t")
+	if err != nil {
+		return errors.Wrap(err, "error encoding model to json")
+	}
+	b = append(b, '\n')
+	if _, err := out.Write(b); err != nil {
+		return errors.Wrap(err, "error writing output")
+	}
+	return nil
+}
+
+type authProvider interface {
+	getAuthArgs() *authArgs
+	getClient() (armhelpers.ACSEngineClient, error)
 }
 
 type authArgs struct {
@@ -62,7 +109,7 @@ type authArgs struct {
 
 func addAuthFlags(authArgs *authArgs, f *flag.FlagSet) {
 	f.StringVar(&authArgs.RawAzureEnvironment, "azure-env", "AzurePublicCloud", "the target Azure cloud")
-	f.StringVar(&authArgs.rawSubscriptionID, "subscription-id", "", "azure subscription id")
+	f.StringVarP(&authArgs.rawSubscriptionID, "subscription-id", "s", "", "azure subscription id (required)")
 	f.StringVar(&authArgs.AuthMethod, "auth-method", "device", "auth method (default:`device`, `client_secret`, `client_certificate`)")
 	f.StringVar(&authArgs.rawClientID, "client-id", "", "client id (used with --auth-method=[client_secret|client_certificate])")
 	f.StringVar(&authArgs.ClientSecret, "client-secret", "", "client secret (used with --auth-mode=client_secret)")
@@ -71,31 +118,87 @@ func addAuthFlags(authArgs *authArgs, f *flag.FlagSet) {
 	f.StringVar(&authArgs.language, "language", "en-us", "language to return error messages in")
 }
 
-func (authArgs *authArgs) getClient() (*armhelpers.AzureClient, error) {
+//this allows the authArgs to be stubbed behind the authProvider interface, and be its own provider when not in tests.
+func (authArgs *authArgs) getAuthArgs() *authArgs {
+	return authArgs
+}
+
+func (authArgs *authArgs) validateAuthArgs() error {
 	authArgs.ClientID, _ = uuid.FromString(authArgs.rawClientID)
 	authArgs.SubscriptionID, _ = uuid.FromString(authArgs.rawSubscriptionID)
 
 	if authArgs.AuthMethod == "client_secret" {
 		if authArgs.ClientID.String() == "00000000-0000-0000-0000-000000000000" || authArgs.ClientSecret == "" {
-			log.Fatal(`--client-id and --client-secret must be specified when --auth-method="client_secret"`)
+			return errors.New(`--client-id and --client-secret must be specified when --auth-method="client_secret"`)
 		}
 		// try parse the UUID
 	} else if authArgs.AuthMethod == "client_certificate" {
 		if authArgs.ClientID.String() == "00000000-0000-0000-0000-000000000000" || authArgs.CertificatePath == "" || authArgs.PrivateKeyPath == "" {
-			log.Fatal(`--client-id and --certificate-path, and --private-key-path must be specified when --auth-method="client_certificate"`)
+			return errors.New(`--client-id and --certificate-path, and --private-key-path must be specified when --auth-method="client_certificate"`)
 		}
 	}
 
 	if authArgs.SubscriptionID.String() == "00000000-0000-0000-0000-000000000000" {
-		log.Fatal("--subscription-id is required (and must be a valid UUID)")
+		subID, err := getSubFromAzDir(filepath.Join(helpers.GetHomeDir(), ".azure"))
+		if err != nil || subID.String() == "00000000-0000-0000-0000-000000000000" {
+			return errors.New("--subscription-id is required (and must be a valid UUID)")
+		}
+		log.Infoln("No subscription provided, using selected subscription from azure CLI:", subID.String())
+		authArgs.SubscriptionID = subID
 	}
 
+	_, err := azure.EnvironmentFromName(authArgs.RawAzureEnvironment)
+	if err != nil {
+		return errors.New("failed to parse --azure-env as a valid target Azure cloud environment")
+	}
+	return nil
+}
+
+func getSubFromAzDir(root string) (uuid.UUID, error) {
+	subConfig, err := ini.Load(filepath.Join(root, "clouds.config"))
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "error decoding cloud subscription config")
+	}
+
+	cloudConfig, err := ini.Load(filepath.Join(root, "config"))
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "error decoding cloud config")
+	}
+
+	cloud := getSelectedCloudFromAzConfig(cloudConfig)
+	return getCloudSubFromAzConfig(cloud, subConfig)
+}
+
+func getSelectedCloudFromAzConfig(f *ini.File) string {
+	selectedCloud := "AzureCloud"
+	if cloud, err := f.GetSection("cloud"); err == nil {
+		if name, err := cloud.GetKey("name"); err == nil {
+			if s := name.String(); s != "" {
+				selectedCloud = s
+			}
+		}
+	}
+	return selectedCloud
+}
+
+func getCloudSubFromAzConfig(cloud string, f *ini.File) (uuid.UUID, error) {
+	cfg, err := f.GetSection(cloud)
+	if err != nil {
+		return uuid.UUID{}, errors.New("could not find user defined subscription id")
+	}
+	sub, err := cfg.GetKey("subscription")
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "error reading subscription id from cloud config")
+	}
+	return uuid.FromString(sub.String())
+}
+
+func (authArgs *authArgs) getClient() (armhelpers.ACSEngineClient, error) {
+	var client *armhelpers.AzureClient
 	env, err := azure.EnvironmentFromName(authArgs.RawAzureEnvironment)
 	if err != nil {
-		log.Fatal("failed to parse --azure-env as a valid target Azure cloud environment")
+		return nil, err
 	}
-
-	var client *armhelpers.AzureClient
 	switch authArgs.AuthMethod {
 	case "device":
 		client, err = armhelpers.NewAzureClientWithDeviceAuth(env, authArgs.SubscriptionID.String())
@@ -104,8 +207,7 @@ func (authArgs *authArgs) getClient() (*armhelpers.AzureClient, error) {
 	case "client_certificate":
 		client, err = armhelpers.NewAzureClientWithClientCertificateFile(env, authArgs.SubscriptionID.String(), authArgs.ClientID.String(), authArgs.CertificatePath, authArgs.PrivateKeyPath)
 	default:
-		log.Fatalf("--auth-method: ERROR: method unsupported. method=%q.", authArgs.AuthMethod)
-		return nil, nil // unreachable
+		return nil, errors.Errorf("--auth-method: ERROR: method unsupported. method=%q", authArgs.AuthMethod)
 	}
 	if err != nil {
 		return nil, err
@@ -116,4 +218,24 @@ func (authArgs *authArgs) getClient() (*armhelpers.AzureClient, error) {
 	}
 	client.AddAcceptLanguages([]string{authArgs.language})
 	return client, nil
+}
+
+func getCompletionCmd(root *cobra.Command) *cobra.Command {
+	var completionCmd = &cobra.Command{
+		Use:   "completion",
+		Short: "Generates bash completion scripts",
+		Long: `To load completion run
+
+	source <(acs-engine completion)
+
+	To configure your bash shell to load completions for each session, add this to your bashrc
+
+	# ~/.bashrc or ~/.profile
+	source <(acs-engine completion)
+	`,
+		Run: func(cmd *cobra.Command, args []string) {
+			root.GenBashCompletion(os.Stdout)
+		},
+	}
+	return completionCmd
 }

@@ -1,15 +1,18 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package operations
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Azure/acs-engine/pkg/armhelpers"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
 )
 
 const (
@@ -37,9 +40,14 @@ func SafelyDrainNode(az armhelpers.ACSEngineClient, logger *log.Entry, masterURL
 	if err != nil {
 		return err
 	}
+	return SafelyDrainNodeWithClient(client, logger, nodeName, timeout)
+}
 
+// SafelyDrainNodeWithClient safely drains a node so that it can be deleted from the cluster
+func SafelyDrainNodeWithClient(client armhelpers.KubernetesClient, logger *log.Entry, nodeName string, timeout time.Duration) error {
 	//Mark the node unschedulable
 	var node *v1.Node
+	var err error
 	for i := 0; i < cordonMaxRetries; i++ {
 		node, err = client.GetNode(nodeName)
 		if err != nil {
@@ -95,7 +103,7 @@ func mirrorPodFilter(pod v1.Pod) bool {
 
 func getControllerRef(pod *v1.Pod) *metav1.OwnerReference {
 	for _, ref := range pod.ObjectMeta.OwnerReferences {
-		if ref.Controller != nil && *ref.Controller == true {
+		if ref.Controller != nil && *ref.Controller {
 			return &ref
 		}
 	}
@@ -172,7 +180,7 @@ func (o *drainOperation) evictPods(pods []v1.Pod, policyGroupVersion string) err
 				} else if apierrors.IsTooManyRequests(err) {
 					time.Sleep(5 * time.Second)
 				} else {
-					errCh <- fmt.Errorf("error when evicting pod %q: %v", pod.Name, err)
+					errCh <- errors.Wrapf(err, "error when evicting pod %q", pod.Name)
 					return
 				}
 			}
@@ -181,7 +189,7 @@ func (o *drainOperation) evictPods(pods []v1.Pod, policyGroupVersion string) err
 			if err == nil {
 				doneCh <- true
 			} else {
-				errCh <- fmt.Errorf("error when waiting for pod %q terminating: %v", pod.Name, err)
+				errCh <- errors.Wrapf(err, "error when waiting for pod %q terminating", pod.Name)
 			}
 		}(pod, doneCh, errCh)
 	}
@@ -197,7 +205,7 @@ func (o *drainOperation) evictPods(pods []v1.Pod, policyGroupVersion string) err
 				return nil
 			}
 		case <-time.After(o.timeout):
-			return fmt.Errorf("Drain did not complete within %v", o.timeout)
+			return errors.Errorf("Drain did not complete within %v", o.timeout)
 		}
 	}
 }

@@ -1,20 +1,25 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package kubernetesupgrade
 
 import (
 	"os"
 	"testing"
 
+	"fmt"
+
 	"github.com/Azure/acs-engine/pkg/api"
-	"github.com/Azure/acs-engine/pkg/api/common"
 	"github.com/Azure/acs-engine/pkg/armhelpers"
 	"github.com/Azure/acs-engine/pkg/i18n"
 	. "github.com/Azure/acs-engine/pkg/test"
-	. "github.com/onsi/gomega"
-
 	. "github.com/onsi/ginkgo"
-	uuid "github.com/satori/go.uuid"
+	. "github.com/onsi/gomega"
+	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
+
+const TestACSEngineVersion = "1.0.0"
 
 func TestUpgradeCluster(t *testing.T) {
 	RunSpecsWithReporters(t, "kubernetesupgrade", "Server Suite")
@@ -26,11 +31,29 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 		os.RemoveAll("_output")
 	})
 
+	It("Should succeed when cluster VMs are missing expected tags during upgrade operation", func() {
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 1, 1, false)
+		uc := UpgradeCluster{
+			Translator: &i18n.Translator{},
+			Logger:     log.NewEntry(log.New()),
+		}
+
+		mockClient := armhelpers.MockACSEngineClient{}
+		mockClient.FailListVirtualMachinesTags = true
+		uc.Client = &mockClient
+
+		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
+
+		err := uc.UpgradeCluster(subID, &mockClient, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
+		Expect(err).To(BeNil())
+		Expect(uc.ClusterTopology.AgentPools).NotTo(BeEmpty())
+
+		// Clean up
+		os.RemoveAll("./translations")
+	})
+
 	It("Should return error message when failing to list VMs during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 1, 1)
-
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot7Dot13
-
+		cs := api.CreateMockContainerService("testcluster", "1.7.14", 1, 1, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -42,7 +65,7 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("Error while querying ARM for resources: ListVirtualMachines failed"))
 
@@ -50,10 +73,8 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 		os.RemoveAll("./translations")
 	})
 
-	It("Should return error message when failing to detete VMs during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 1, 1)
-
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot7Dot13
+	It("Should return error message when failing to delete VMs during upgrade operation", func() {
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 1, 1, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -65,14 +86,13 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("DeleteVirtualMachine failed"))
 	})
 
 	It("Should return error message when failing to deploy template during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot13, 1, 1)
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot6Dot13
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 1, 1, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -84,14 +104,13 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("DeployTemplate failed"))
 	})
 
 	It("Should return error message when failing to get a virtual machine during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 1, 6)
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot7Dot13
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 1, 6, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -103,14 +122,13 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("GetVirtualMachine failed"))
 	})
 
 	It("Should return error message when failing to get storage client during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 5, 1)
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot7Dot13
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 5, 1, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -122,14 +140,13 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("GetStorageClient failed"))
 	})
 
 	It("Should return error message when failing to delete network interface during upgrade operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 3, 2)
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot7Dot13
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 3, 2, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -141,14 +158,13 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
 		Expect(err.Error()).To(Equal("DeleteNetworkInterface failed"))
 	})
 
 	It("Should return error message when failing on ClusterPreflightCheck operation", func() {
-		cs := createContainerService("testcluster", common.KubernetesVersion1Dot6Dot9, 3, 3)
-		cs.Properties.OrchestratorProfile.OrchestratorVersion = common.KubernetesVersion1Dot8Dot6
+		cs := api.CreateMockContainerService("testcluster", "1.7.0", 3, 3, false)
 		uc := UpgradeCluster{
 			Translator: &i18n.Translator{},
 			Logger:     log.NewEntry(log.New()),
@@ -159,59 +175,48 @@ var _ = Describe("Upgrade Kubernetes cluster tests", func() {
 
 		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
 
-		err := uc.UpgradeCluster(subID, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"})
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
 		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(Equal("Error while querying ARM for resources: Kubernetes:1.6.8 cannot be upgraded to 1.8.6"))
+		fmt.Print("GOT :   ", err.Error())
+		Expect(err.Error()).To(ContainSubstring("Error while querying ARM for resources: Kubernetes:1.7.9 cannot be upgraded to 1.7.0"))
+	})
+
+	It("Should return error message when failing to delete role assignment during upgrade operation", func() {
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 3, 2, false)
+		cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{}
+		cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		uc := UpgradeCluster{
+			Translator: &i18n.Translator{},
+			Logger:     log.NewEntry(log.New()),
+		}
+
+		mockClient := armhelpers.MockACSEngineClient{}
+		mockClient.FailDeleteRoleAssignment = true
+		mockClient.ShouldSupportVMIdentity = true
+		uc.Client = &mockClient
+
+		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
+
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(Equal("DeleteRoleAssignmentByID failed"))
+	})
+
+	It("Should not fail if no managed identity is returned by azure during upgrade operation", func() {
+		cs := api.CreateMockContainerService("testcluster", "1.7.16", 3, 2, false)
+		cs.Properties.OrchestratorProfile.KubernetesConfig = &api.KubernetesConfig{}
+		cs.Properties.OrchestratorProfile.KubernetesConfig.UseManagedIdentity = true
+		uc := UpgradeCluster{
+			Translator: &i18n.Translator{},
+			Logger:     log.NewEntry(log.New()),
+		}
+
+		mockClient := armhelpers.MockACSEngineClient{}
+		uc.Client = &mockClient
+
+		subID, _ := uuid.FromString("DEC923E3-1EF1-4745-9516-37906D56DEC4")
+
+		err := uc.UpgradeCluster(subID, nil, "kubeConfig", "TestRg", cs, "12345678", []string{"agentpool1"}, TestACSEngineVersion)
+		Expect(err).To(BeNil())
 	})
 })
-
-func createContainerService(containerServiceName string, orchestratorVersion string, masterCount int, agentCount int) *api.ContainerService {
-	cs := api.ContainerService{}
-	cs.ID = uuid.NewV4().String()
-	cs.Location = "eastus"
-	cs.Name = containerServiceName
-
-	cs.Properties = &api.Properties{}
-
-	cs.Properties.MasterProfile = &api.MasterProfile{}
-	cs.Properties.MasterProfile.Count = masterCount
-	cs.Properties.MasterProfile.DNSPrefix = "testmaster"
-	cs.Properties.MasterProfile.VMSize = "Standard_D2_v2"
-
-	cs.Properties.AgentPoolProfiles = []*api.AgentPoolProfile{}
-	agentPool := &api.AgentPoolProfile{}
-	agentPool.Count = agentCount
-	agentPool.Name = "agentpool1"
-	agentPool.VMSize = "Standard_D2_v2"
-	agentPool.OSType = "Linux"
-	agentPool.AvailabilityProfile = "AvailabilitySet"
-	agentPool.StorageProfile = "StorageAccount"
-
-	cs.Properties.AgentPoolProfiles = append(cs.Properties.AgentPoolProfiles, agentPool)
-
-	cs.Properties.LinuxProfile = &api.LinuxProfile{
-		AdminUsername: "azureuser",
-		SSH: struct {
-			PublicKeys []api.PublicKey `json:"publicKeys"`
-		}{},
-	}
-
-	cs.Properties.LinuxProfile.AdminUsername = "azureuser"
-	cs.Properties.LinuxProfile.SSH.PublicKeys = append(
-		cs.Properties.LinuxProfile.SSH.PublicKeys, api.PublicKey{KeyData: "test"})
-
-	cs.Properties.ServicePrincipalProfile = &api.ServicePrincipalProfile{}
-	cs.Properties.ServicePrincipalProfile.ClientID = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
-	cs.Properties.ServicePrincipalProfile.Secret = "DEC923E3-1EF1-4745-9516-37906D56DEC4"
-
-	cs.Properties.OrchestratorProfile = &api.OrchestratorProfile{}
-	cs.Properties.OrchestratorProfile.OrchestratorType = api.Kubernetes
-	cs.Properties.OrchestratorProfile.OrchestratorVersion = orchestratorVersion
-
-	cs.Properties.CertificateProfile = &api.CertificateProfile{}
-	cs.Properties.CertificateProfile.CaCertificate = "cacert"
-	cs.Properties.CertificateProfile.KubeConfigCertificate = "kubeconfigcert"
-	cs.Properties.CertificateProfile.KubeConfigPrivateKey = "kubeconfigkey"
-
-	return &cs
-}

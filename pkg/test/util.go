@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package test
 
 import (
@@ -6,9 +9,9 @@ import (
 
 	"path/filepath"
 
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var (
@@ -19,11 +22,11 @@ var (
 // RunSpecsWithReporters bootstraps Ginkgo/Gomega tests to function and results go to the /test/junit directory and log output
 func RunSpecsWithReporters(t *testing.T, junitprefix string, suitename string) {
 
-	RegisterFailHandler(Fail)
+	gomega.RegisterFailHandler(ginkgo.Fail)
 	if JUnitOutDir == "" {
-		RunSpecs(t, suitename)
+		ginkgo.RunSpecs(t, suitename)
 		return
 	}
 	junitReporter := reporters.NewJUnitReporter(filepath.Join(JUnitOutDir, fmt.Sprintf("%s-junit.xml", junitprefix)))
-	RunSpecsWithDefaultAndCustomReporters(t, suitename, []Reporter{junitReporter})
+	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, suitename, []ginkgo.Reporter{junitReporter})
 }

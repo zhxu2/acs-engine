@@ -1,9 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package main
 
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -16,11 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/acs-engine/pkg/acsengine"
+	"github.com/Azure/acs-engine/pkg/helpers"
 	"github.com/Azure/acs-engine/test/acs-engine-test/config"
 	"github.com/Azure/acs-engine/test/acs-engine-test/metrics"
 	"github.com/Azure/acs-engine/test/acs-engine-test/promote"
 	"github.com/Azure/acs-engine/test/acs-engine-test/report"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -56,16 +59,17 @@ const usage = `Usage:
 	-e <log-errors configuration file>
 `
 
-var logDir string
-var orchestratorRe *regexp.Regexp
-var enableMetrics bool
-var saName string
-var saKey string
-var sa promote.StorageAccount
-var subID string
-var rgPrefix string
-var orchestrator string
-var region string
+var (
+	logDir         string
+	orchestratorRe *regexp.Regexp
+	enableMetrics  bool
+	saName         string
+	saKey          string
+	sa             promote.StorageAccount
+	subID          string
+	rgPrefix       string
+	orchestrator   string
+)
 
 func init() {
 	orchestratorRe = regexp.MustCompile(`"orchestratorType": "(\S+)"`)
@@ -104,7 +108,7 @@ func (m *TestManager) Run() error {
 	// determine timeout
 	timeoutMin, err := strconv.Atoi(os.Getenv("STAGE_TIMEOUT_MIN"))
 	if err != nil {
-		return fmt.Errorf("Error [Atoi STAGE_TIMEOUT_MIN]: %v", err)
+		return errors.Wrap(err, "Error [Atoi STAGE_TIMEOUT_MIN]")
 	}
 	timeout := time.Duration(time.Minute * time.Duration(timeoutMin))
 
@@ -176,7 +180,7 @@ func (m *TestManager) Run() error {
 						if err != nil {
 							fmt.Printf("Got error from RunPromoteToFailure: %#v\n", err)
 						}
-						if result == true {
+						if result {
 							success[index] = false
 						} else {
 							success[index] = true
@@ -551,11 +555,11 @@ func mainInternal() error {
 
 	// validate environment
 	if !isValidEnv() {
-		return fmt.Errorf("environment is not set")
+		return errors.New("environment is not set")
 	}
 	// get test configuration
 	if configFile == "" {
-		return fmt.Errorf("test configuration is not provided")
+		return errors.New("test configuration is not provided")
 	}
 	testManager.config, err = config.GetTestConfig(configFile)
 	if err != nil {
@@ -575,7 +579,7 @@ func mainInternal() error {
 	testManager.Manager = report.New(os.Getenv("JOB_BASE_NAME"), buildNum, len(testManager.config.Deployments), logErrorFile)
 	// check root directory
 	if rootDir == "" {
-		return fmt.Errorf("acs-engine root directory is not provided")
+		return errors.New("acs-engine root directory is not provided")
 	}
 	testManager.rootDir = rootDir
 	if _, err = os.Stat(fmt.Sprintf("%s/%s", rootDir, script)); err != nil {
@@ -589,12 +593,14 @@ func mainInternal() error {
 	}
 	// set regions
 	regions := []string{}
-	for _, region := range acsengine.AzureLocations {
+	for _, region := range helpers.GetAzureLocations() {
 		switch region {
 		case "eastus2euap": // initial deploy region for all RPs, known to be less stable
 		case "japanwest": // no D2V2 support
 		case "chinaeast": // private cloud
 		case "chinanorth": // private cloud
+		case "chinaeast2": // private cloud
+		case "chinanorth2": // private cloud
 		case "germanycentral": // Germany cloud
 		case "germanynortheast": // Germany cloud
 		case "usgovvirginia": // US Gov cloud

@@ -1,9 +1,11 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package node
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os/exec"
 	"regexp"
@@ -11,11 +13,12 @@ import (
 	"time"
 
 	"github.com/Azure/acs-engine/test/e2e/kubernetes/util"
+	"github.com/pkg/errors"
 )
 
 const (
 	//ServerVersion is used to parse out the version of the API running
-	ServerVersion = `(Server Version:\s)+(v\d+.\d+.\d+)+`
+	ServerVersion = `(Server Version:\s)+(.*)`
 )
 
 // Node represents the kubernetes Node Resource
@@ -71,14 +74,22 @@ type List struct {
 // AreAllReady returns a bool depending on cluster state
 func AreAllReady(nodeCount int) bool {
 	list, _ := Get()
+	var ready int
 	if list != nil && len(list.Nodes) == nodeCount {
 		for _, node := range list.Nodes {
+			nodeReady := false
 			for _, condition := range node.Status.Conditions {
-				if condition.Type == "KubeletReady" && condition.Status == "false" {
-					return false
+				if condition.Type == "Ready" && condition.Status == "True" {
+					ready++
+					nodeReady = true
 				}
 			}
+			if !nodeReady {
+				return false
+			}
 		}
+	}
+	if ready == nodeCount {
 		return true
 	}
 	return false
@@ -94,9 +105,9 @@ func WaitOnReady(nodeCount int, sleep, duration time.Duration) bool {
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- fmt.Errorf("Timeout exceeded (%s) while waiting for Nodes to become ready", duration.String())
+				errCh <- errors.Errorf("Timeout exceeded (%s) while waiting for Nodes to become ready", duration.String())
 			default:
-				if AreAllReady(nodeCount) == true {
+				if AreAllReady(nodeCount) {
 					readyCh <- true
 				}
 				time.Sleep(sleep)

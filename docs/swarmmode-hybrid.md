@@ -4,11 +4,11 @@
 
 Here are the steps to deploy a Hybrid Swarm Mode cluster:
 
-1. [install acs-engine](acsengine.md#downloading-and-building-acs-engine)
-2. [generate your ssh key](ssh.md#ssh-key-generation)
-3. edit the [Hybrid Swarm Mode example](../examples/windows/swarmmode-hybrid.json) and fill in the blank strings
-4. [generate the template](acsengine.md#generating-a-template)
-5. [deploy the output azuredeploy.json and azuredeploy.parameters.json](../README.md#deployment-usage)
+1. [Install acs-engine](acsengine.md#downloading-and-building-acs-engine)
+2. [Generate your ssh key](ssh.md#ssh-key-generation)
+3. [Edit the Hybrid Swarm Mode example](../examples/windows/swarmmode-hybrid.json) and fill in the blank strings
+4. [Generate the template](acsengine.md#generate-templates)
+5. [Deploy the output azuredeploy.json and azuredeploy.parameters.json](../README.md#deploy-templates)
 
 ## Walkthrough
 
@@ -31,7 +31,7 @@ Now you can inspect one of the Windows agents with `docker node inspect <hostnam
 
 ##Limitations
 
-As the [Windows Server Containers documentation](https://docs.microsoft.com/en-us/virtualization/windowscontainers/manage-containers/swarm-mode#limitations) states, at the moment there are a few limitations to Swarm Mode with Windows hosts. 
+As the [Windows Server Containers documentation](https://docs.microsoft.com/en-us/virtualization/windowscontainers/manage-containers/swarm-mode#limitations) states, at the moment there are a few limitations to Swarm Mode with Windows hosts.
 
 The most important is that the routing mesh is not available for Windows Server at the moment, but you can publish ports on the host (`docker service create --publish mode=host`)
 

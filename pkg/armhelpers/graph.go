@@ -1,15 +1,21 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT license.
+
 package armhelpers
 
 import (
+	"context"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/arm/authorization"
-	"github.com/Azure/azure-sdk-for-go/arm/graphrbac"
+	"regexp"
+	"time"
+
+	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
-	"regexp"
-	"time"
 )
 
 const (
@@ -22,22 +28,38 @@ const (
 )
 
 // CreateGraphApplication creates an application via the graphrbac client
-func (az *AzureClient) CreateGraphApplication(applicationCreateParameters graphrbac.ApplicationCreateParameters) (graphrbac.Application, error) {
-	return az.applicationsClient.Create(applicationCreateParameters)
+func (az *AzureClient) CreateGraphApplication(ctx context.Context, applicationCreateParameters graphrbac.ApplicationCreateParameters) (graphrbac.Application, error) {
+	return az.applicationsClient.Create(ctx, applicationCreateParameters)
+}
+
+// DeleteGraphApplication deletes an application via the graphrbac client
+func (az *AzureClient) DeleteGraphApplication(ctx context.Context, applicationObjectID string) (result autorest.Response, err error) {
+	return az.applicationsClient.Delete(ctx, applicationObjectID)
 }
 
 // CreateGraphPrincipal creates a service principal via the graphrbac client
-func (az *AzureClient) CreateGraphPrincipal(servicePrincipalCreateParameters graphrbac.ServicePrincipalCreateParameters) (graphrbac.ServicePrincipal, error) {
-	return az.servicePrincipalsClient.Create(servicePrincipalCreateParameters)
+func (az *AzureClient) CreateGraphPrincipal(ctx context.Context, servicePrincipalCreateParameters graphrbac.ServicePrincipalCreateParameters) (graphrbac.ServicePrincipal, error) {
+	return az.servicePrincipalsClient.Create(ctx, servicePrincipalCreateParameters)
 }
 
 // CreateRoleAssignment creates a role assignment via the authorization client
-func (az *AzureClient) CreateRoleAssignment(scope string, roleAssignmentName string, parameters authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
-	return az.authorizationClient.Create(scope, roleAssignmentName, parameters)
+func (az *AzureClient) CreateRoleAssignment(ctx context.Context, scope string, roleAssignmentName string, parameters authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
+	return az.authorizationClient.Create(ctx, scope, roleAssignmentName, parameters)
+}
+
+// DeleteRoleAssignmentByID deletes a roleAssignment via its unique identifier
+func (az *AzureClient) DeleteRoleAssignmentByID(ctx context.Context, roleAssignmentID string) (authorization.RoleAssignment, error) {
+	return az.authorizationClient.DeleteByID(ctx, roleAssignmentID)
+}
+
+// ListRoleAssignmentsForPrincipal (e.g. a VM) via the scope and the unique identifier of the principal
+func (az *AzureClient) ListRoleAssignmentsForPrincipal(ctx context.Context, scope string, principalID string) (RoleAssignmentListResultPage, error) {
+	page, err := az.authorizationClient.ListForScope(ctx, scope, fmt.Sprintf("principalId eq '%s'", principalID))
+	return &page, err
 }
 
 // CreateApp is a simpler method for creating an application
-func (az *AzureClient) CreateApp(appName, appURL string) (applicationID, servicePrincipalObjectID, servicePrincipalClientSecret string, err error) {
+func (az *AzureClient) CreateApp(ctx context.Context, appName, appURL string, replyURLs *[]string, requiredResourceAccess *[]graphrbac.RequiredResourceAccess) (applicationResp graphrbac.Application, servicePrincipalObjectID, servicePrincipalClientSecret string, err error) {
 	notBefore := time.Now()
 	notAfter := time.Now().Add(10000 * 24 * time.Hour)
 
@@ -52,6 +74,7 @@ func (az *AzureClient) CreateApp(appName, appURL string) (applicationID, service
 		DisplayName:             to.StringPtr(appName),
 		Homepage:                to.StringPtr(appURL),
 		IdentifierUris:          to.StringSlicePtr([]string{appURL}),
+		ReplyUrls:               replyURLs,
 		PasswordCredentials: &[]graphrbac.PasswordCredential{
 			{
 				KeyID:     to.StringPtr(uuid.NewV4().String()),
@@ -60,12 +83,13 @@ func (az *AzureClient) CreateApp(appName, appURL string) (applicationID, service
 				Value:     to.StringPtr(servicePrincipalClientSecret),
 			},
 		},
+		RequiredResourceAccess: requiredResourceAccess,
 	}
-	applicationResp, err := az.CreateGraphApplication(applicationReq)
+	applicationResp, err = az.CreateGraphApplication(ctx, applicationReq)
 	if err != nil {
-		return "", "", "", err
+		return applicationResp, "", "", err
 	}
-	applicationID = to.String(applicationResp.AppID)
+	applicationID := to.String(applicationResp.AppID)
 
 	log.Debugf("ad: creating servicePrincipal for applicationID: %q", applicationID)
 
@@ -73,18 +97,24 @@ func (az *AzureClient) CreateApp(appName, appURL string) (applicationID, service
 		AppID:          applicationResp.AppID,
 		AccountEnabled: to.BoolPtr(true),
 	}
-	servicePrincipalResp, err := az.servicePrincipalsClient.Create(servicePrincipalReq)
+	servicePrincipalResp, err := az.servicePrincipalsClient.Create(ctx, servicePrincipalReq)
 	if err != nil {
-		return "", "", "", err
+		return applicationResp, "", "", err
 	}
 
 	servicePrincipalObjectID = to.String(servicePrincipalResp.ObjectID)
 
-	return applicationID, servicePrincipalObjectID, servicePrincipalClientSecret, nil
+	return applicationResp, servicePrincipalObjectID, servicePrincipalClientSecret, nil
+}
+
+// DeleteApp is a simpler method for deleting an application and the associated spn
+func (az *AzureClient) DeleteApp(ctx context.Context, applicationName, applicationObjectID string) (autorest.Response, error) {
+	log.Debugf("ad: deleting application with name=%q", applicationName)
+	return az.DeleteGraphApplication(ctx, applicationObjectID)
 }
 
 // CreateRoleAssignmentSimple is a wrapper around RoleAssignmentsClient.Create
-func (az *AzureClient) CreateRoleAssignmentSimple(resourceGroup, servicePrincipalObjectID string) error {
+func (az *AzureClient) CreateRoleAssignmentSimple(ctx context.Context, resourceGroup, servicePrincipalObjectID string) error {
 	roleAssignmentName := uuid.NewV4().String()
 
 	roleDefinitionID := fmt.Sprintf(AADRoleReferenceTemplate, az.subscriptionID, AADContributorRoleID)
@@ -97,9 +127,10 @@ func (az *AzureClient) CreateRoleAssignmentSimple(resourceGroup, servicePrincipa
 		},
 	}
 
-	re := regexp.MustCompile("(?i)status=(\\d+)")
+	re := regexp.MustCompile(`(?i)status=(\d+)`)
 	for {
 		_, err := az.CreateRoleAssignment(
+			ctx,
 			scope,
 			roleAssignmentName,
 			roleAssignmentParameters,
@@ -111,6 +142,7 @@ func (az *AzureClient) CreateRoleAssignmentSimple(resourceGroup, servicePrincipa
 				log.Debugf("Failed to create role assignment (will abort now): %q", err)
 				return err
 			}
+			// TODO: Should we handle 409 errors as well here ?
 			log.Debugf("Failed to create role assignment (will retry): %q", err)
 			time.Sleep(3 * time.Second)
 			continue
