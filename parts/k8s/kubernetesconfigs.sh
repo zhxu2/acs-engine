@@ -127,57 +127,64 @@ configureK8s() {
     chmod 0644 "${APISERVER_PUBLIC_KEY_PATH}"
     chown root:root "${APISERVER_PUBLIC_KEY_PATH}"
 
-    AZURE_JSON_PATH="/etc/kubernetes/azure.json"
-    touch "${AZURE_JSON_PATH}"
-    chmod 0600 "${AZURE_JSON_PATH}"
-    chown root:root "${AZURE_JSON_PATH}"
-
     set +x
     echo "${KUBELET_PRIVATE_KEY}" | base64 --decode > "${KUBELET_PRIVATE_KEY_PATH}"
     echo "${APISERVER_PUBLIC_KEY}" | base64 --decode > "${APISERVER_PUBLIC_KEY_PATH}"
     # Perform the required JSON escaping for special characters " and \
     SERVICE_PRINCIPAL_CLIENT_SECRET=$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET | sed "s|\\\\|\\\\\\\|g")
     SERVICE_PRINCIPAL_CLIENT_SECRET=$(echo $SERVICE_PRINCIPAL_CLIENT_SECRET | sed 's|"|\\"|g')
-    cat << EOF > "${AZURE_JSON_PATH}"
+
+    if [[ ! -z "${MASTER_NODE}" ]]; then
+        echo "MASTER_NODE is non-empty, master node, configure azure json."
+        
+        AZURE_JSON_PATH="/etc/kubernetes/azure.json"
+        touch "${AZURE_JSON_PATH}"
+        chmod 0600 "${AZURE_JSON_PATH}"
+        chown root:root "${AZURE_JSON_PATH}"
+        cat << EOF > "${AZURE_JSON_PATH}"
 {
-    "cloud":"${TARGET_ENVIRONMENT}",
-    "tenantId": "${TENANT_ID}",
-    "subscriptionId": "${SUBSCRIPTION_ID}",
-    "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
-    "aadClientSecret": "${SERVICE_PRINCIPAL_CLIENT_SECRET}",
-    "resourceGroup": "${RESOURCE_GROUP}",
-    "location": "${LOCATION}",
-    "vmType": "${VM_TYPE}",
-    "subnetName": "${SUBNET}",
-    "securityGroupName": "${NETWORK_SECURITY_GROUP}",
-    "vnetName": "${VIRTUAL_NETWORK}",
-    "vnetResourceGroup": "${VIRTUAL_NETWORK_RESOURCE_GROUP}",
-    "routeTableName": "${ROUTE_TABLE}",
-    "primaryAvailabilitySetName": "${PRIMARY_AVAILABILITY_SET}",
-    "primaryScaleSetName": "${PRIMARY_SCALE_SET}",
-    "cloudProviderBackoff": ${CLOUDPROVIDER_BACKOFF},
-    "cloudProviderBackoffRetries": ${CLOUDPROVIDER_BACKOFF_RETRIES},
-    "cloudProviderBackoffExponent": ${CLOUDPROVIDER_BACKOFF_EXPONENT},
-    "cloudProviderBackoffDuration": ${CLOUDPROVIDER_BACKOFF_DURATION},
-    "cloudProviderBackoffJitter": ${CLOUDPROVIDER_BACKOFF_JITTER},
-    "cloudProviderRatelimit": ${CLOUDPROVIDER_RATELIMIT},
-    "cloudProviderRateLimitQPS": ${CLOUDPROVIDER_RATELIMIT_QPS},
-    "cloudProviderRateLimitBucket": ${CLOUDPROVIDER_RATELIMIT_BUCKET},
-    "useManagedIdentityExtension": ${USE_MANAGED_IDENTITY_EXTENSION},
-    "userAssignedIdentityID": "${USER_ASSIGNED_IDENTITY_ID}",
-    "useInstanceMetadata": ${USE_INSTANCE_METADATA},
-    "loadBalancerSku": "${LOAD_BALANCER_SKU}",
-    "excludeMasterFromStandardLB": ${EXCLUDE_MASTER_FROM_STANDARD_LB},
-    "providerVaultName": "${KMS_PROVIDER_VAULT_NAME}",
-    "providerKeyName": "k8s",
-    "providerKeyVersion": ""
+        "cloud":"${TARGET_ENVIRONMENT}",
+        "tenantId": "${TENANT_ID}",
+        "subscriptionId": "${SUBSCRIPTION_ID}",
+        "aadClientId": "${SERVICE_PRINCIPAL_CLIENT_ID}",
+        "aadClientSecret": "${SERVICE_PRINCIPAL_CLIENT_SECRET}",
+        "resourceGroup": "${RESOURCE_GROUP}",
+        "location": "${LOCATION}",
+        "vmType": "${VM_TYPE}",
+        "subnetName": "${SUBNET}",
+        "securityGroupName": "${NETWORK_SECURITY_GROUP}",
+        "vnetName": "${VIRTUAL_NETWORK}",
+        "vnetResourceGroup": "${VIRTUAL_NETWORK_RESOURCE_GROUP}",
+        "routeTableName": "${ROUTE_TABLE}",
+        "primaryAvailabilitySetName": "${PRIMARY_AVAILABILITY_SET}",
+        "primaryScaleSetName": "${PRIMARY_SCALE_SET}",
+        "cloudProviderBackoff": ${CLOUDPROVIDER_BACKOFF},
+        "cloudProviderBackoffRetries": ${CLOUDPROVIDER_BACKOFF_RETRIES},
+        "cloudProviderBackoffExponent": ${CLOUDPROVIDER_BACKOFF_EXPONENT},
+        "cloudProviderBackoffDuration": ${CLOUDPROVIDER_BACKOFF_DURATION},
+        "cloudProviderBackoffJitter": ${CLOUDPROVIDER_BACKOFF_JITTER},
+        "cloudProviderRatelimit": ${CLOUDPROVIDER_RATELIMIT},
+        "cloudProviderRateLimitQPS": ${CLOUDPROVIDER_RATELIMIT_QPS},
+        "cloudProviderRateLimitBucket": ${CLOUDPROVIDER_RATELIMIT_BUCKET},
+        "useManagedIdentityExtension": ${USE_MANAGED_IDENTITY_EXTENSION},
+        "userAssignedIdentityID": "${USER_ASSIGNED_IDENTITY_ID}",
+        "useInstanceMetadata": ${USE_INSTANCE_METADATA},
+        "loadBalancerSku": "${LOAD_BALANCER_SKU}",
+        "excludeMasterFromStandardLB": ${EXCLUDE_MASTER_FROM_STANDARD_LB},
+        "providerVaultName": "${KMS_PROVIDER_VAULT_NAME}",
+        "providerKeyName": "k8s",
+        "providerKeyVersion": ""
 }
 EOF
-    set -x
-    if [[ ! -z "${MASTER_NODE}" ]]; then
-        if [[ "${ENABLE_AGGREGATED_APIS}" = True ]]; then
-            generateAggregatedAPICerts
+        set -x
+        if [[ ! -z "${MASTER_NODE}" ]]; then
+            if [[ "${ENABLE_AGGREGATED_APIS}" = True ]]; then
+                generateAggregatedAPICerts
+            fi
         fi
+    else
+        set -x
+        echo "MASTER_NODE is empty, worker node, skip azure json."
     fi
 }
 

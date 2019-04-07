@@ -105,6 +105,7 @@ func (cs *ContainerService) setKubeletConfig() {
 		for _, key := range []string{"--anonymous-auth", "--client-ca-file"} {
 			delete(o.KubernetesConfig.KubeletConfig, key)
 		}
+		o.KubernetesConfig.KubeletConfig["--authorization-mode"] = "AlwaysAllow"
 	}
 
 	removeKubeletFlags(o.KubernetesConfig.KubeletConfig, o.OrchestratorVersion)

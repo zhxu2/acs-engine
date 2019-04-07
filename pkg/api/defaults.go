@@ -305,7 +305,7 @@ func (p *Properties) setMasterProfileDefaults(isUpgrade bool) {
 						p.MasterProfile.Subnet = DefaultKubernetesMasterSubnet
 						p.MasterProfile.AgentSubnet = DefaultKubernetesAgentSubnetVMSS
 					} else {
-						p.MasterProfile.FirstConsecutiveStaticIP = p.MasterProfile.GetFirstConsecutiveStaticIPAddress(p.MasterProfile.Subnet)
+						p.MasterProfile.FirstConsecutiveStaticIP = DefaultFirstConsecutiveKubernetesStaticIP
 					}
 				}
 			} else {
