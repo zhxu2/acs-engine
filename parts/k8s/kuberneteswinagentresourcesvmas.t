@@ -29,7 +29,7 @@
               {{end}}
               "privateIPAllocationMethod": "Dynamic",
               "subnet": {
-                "id": "[variables('{{$.Name}}Variables').{{$.Name}}VnetSubnetID]"
+                "id": "[variables('{{$.Name}}Variables').VnetSubnetID]"
              }
             }
           }
@@ -46,7 +46,7 @@
 {{if .IsManagedDisks}}
    {
       "location": "[variables('location')]",
-      "name": "[variables('{{.Name}}AvailabilitySet')]",
+      "name": "[variables('{{.Name}}Variables').AvailabilitySet]",
       "apiVersion": "[variables('apiVersionStorageManagedDisks')]",
       "properties":
         {
@@ -132,7 +132,7 @@
     {{end}}
     {
       "location": "[variables('location')]",
-      "name": "[variables('{{.Name}}AvailabilitySet')]",
+      "name": "[variables('{{.Name}}Variables').AvailabilitySet]",
       "apiVersion": "[variables('apiVersionDefault')]",
       "properties": {},
       "type": "Microsoft.Compute/availabilitySets"
@@ -156,7 +156,7 @@
   {{end}}
 {{end}}
         "[concat('Microsoft.Network/networkInterfaces/', variables('{{.Name}}Variables').VMNamePrefix, 'nic-', copyIndex(variables('{{.Name}}Variables').Offset))]",
-        "[concat('Microsoft.Compute/availabilitySets/', variables('{{.Name}}AvailabilitySet'))]"
+        "[concat('Microsoft.Compute/availabilitySets/', variables('{{.Name}}Variables').AvailabilitySet)]"
       ],
       "tags":
       {
@@ -174,7 +174,7 @@
       {{end}}
       "properties": {
         "availabilitySet": {
-          "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('{{.Name}}AvailabilitySet'))]"
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('{{.Name}}Variables').AvailabilitySet)]"
         },
         "hardwareProfile": {
           "vmSize": "[variables('{{.Name}}Variables').VMSize]"
@@ -198,10 +198,10 @@
         "storageProfile": {
           {{GetDataDisks .}}
           "imageReference": {
-            "offer": "[variables('agentWindowsOffer')]",
-            "publisher": "[variables('agentWindowsPublisher')]",
-            "sku": "[variables('agentWindowsSku')]",
-            "version": "[variables('agentWindowsVersion')]"
+            "offer": "[variables('{{.Name}}Variables').osImageOffer]",
+            "publisher": "[variables('{{.Name}}Variables').osImagePublisher]",
+            "sku": "[variables('{{.Name}}Variables').osImageSKU]",
+            "version": "[variables('{{.Name}}Variables').osImageVersion]"
           },
           "osDisk": {
             "createOption": "FromImage"
