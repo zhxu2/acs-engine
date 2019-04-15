@@ -131,6 +131,13 @@ func (cs *ContainerService) setKubeletConfig() {
 				for key, val := range staticWindowsKubeletConfig {
 					profile.KubernetesConfig.KubeletConfig[key] = val
 				}
+				// Remove secure kubelet flags, if configured
+				if !helpers.IsTrueBoolPointer(o.KubernetesConfig.EnableSecureKubelet) {
+					for _, key := range []string{"--anonymous-auth", "--client-ca-file"} {
+						delete(profile.KubernetesConfig.KubeletConfig, key)
+					}
+					profile.KubernetesConfig.KubeletConfig["--authorization-mode"] = "AlwaysAllow"
+				}
 			}
 		}
 		setMissingKubeletValues(profile.KubernetesConfig, o.KubernetesConfig.KubeletConfig)
