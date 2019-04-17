@@ -559,26 +559,29 @@ try
     # Turn off Firewall to enable pods to talk to service endpoints. (Kubelet should eventually do this)
     netsh advfirewall set allprofiles state off
 
-    # startup the service
-    `$hnsNetwork = Get-HnsNetwork | ? Name -EQ `$global:NetworkMode.ToLower()
-
-    if (`$hnsNetwork)
+    if (Get-Module -Name HostNetworkingService)
     {
-        # Kubelet has been restarted with existing network.
-        # Cleanup all containers
-        docker ps -q | foreach {docker rm `$_ -f}
-        # cleanup network
-        Write-Host "Cleaning up old HNS network found"
-        Remove-HnsNetwork `$hnsNetwork
-        Start-Sleep 10
+      # startup the service
+      `$hnsNetwork = Get-HnsNetwork | ? Name -EQ `$global:NetworkMode.ToLower()
+
+      if (`$hnsNetwork)
+      {
+          # Kubelet has been restarted with existing network.
+          # Cleanup all containers
+          docker ps -q | foreach {docker rm `$_ -f}
+          # cleanup network
+          Write-Host "Cleaning up old HNS network found"
+          Remove-HnsNetwork `$hnsNetwork
+          Start-Sleep 10
+      }
+
+      Write-Host "Creating a new hns Network"
+      ipmo `$global:HNSModule
+
+      `$hnsNetwork = New-HNSNetwork -Type `$global:NetworkMode -AddressPrefix `$podCIDR -Gateway `$masterSubnetGW -Name `$global:NetworkMode.ToLower() -Verbose
+      # New network has been created, Kubeproxy service has to be restarted
+      Restart-Service Kubeproxy
     }
-
-    Write-Host "Creating a new hns Network"
-    ipmo `$global:HNSModule
-
-    `$hnsNetwork = New-HNSNetwork -Type `$global:NetworkMode -AddressPrefix `$podCIDR -Gateway `$masterSubnetGW -Name `$global:NetworkMode.ToLower() -Verbose
-    # New network has been created, Kubeproxy service has to be restarted
-    Restart-Service Kubeproxy
 
     Start-Sleep 10
     # Add route to all other POD networks
@@ -601,19 +604,22 @@ catch
 `$env:KUBE_NETWORK = "$KubeNetwork"
 `$global:NetworkMode = "$NetworkMode"
 `$global:HNSModule = "$HNSModule"
-`$hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
-while (!`$hnsNetwork)
+if (Get-Module -Name HostNetworkingService)
 {
-    Write-Host "Waiting for Network [$KubeNetwork] to be created . . ."
-    Start-Sleep 10
-    `$hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
-}
+  `$hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
+  while (!`$hnsNetwork)
+  {
+      Write-Host "Waiting for Network [$KubeNetwork] to be created . . ."
+      Start-Sleep 10
+      `$hnsNetwork = Get-HnsNetwork | ? Name -EQ $KubeNetwork
+  }
 
-#
-# cleanup the persisted policy lists
-#
-ipmo `$global:HNSModule
-Get-HnsPolicyList | Remove-HnsPolicyList
+  #
+  # cleanup the persisted policy lists
+  #
+  ipmo `$global:HNSModule
+  Get-HnsPolicyList | Remove-HnsPolicyList
+}
 
 $KubeDir\kube-proxy.exe --v=3 --proxy-mode=kernelspace --hostname-override=$env:computername --kubeconfig=$KubeDir\config
 "@
