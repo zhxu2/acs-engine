@@ -6,6 +6,14 @@ packages:
  - traceroute
 
 write_files:
+- path: /etc/apt/preferences
+  permissions: "0644"
+  owner: root
+  content: |
+    Package: walinuxagent
+    Pin: version 2.2.32.2
+    Pin-Priority: 550
+
 - path: "/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf"
   permissions: "0644"
   owner: "root"
@@ -275,6 +283,7 @@ runcmd:
 - sudo -u etcd rm -rf /var/lib/etcd/default
 - systemctl restart etcd
 - for i in $(seq 1 20); do curl --max-time 60 http://127.0.0.1:2379/v2/machines; [ $? -eq 0 ] && break || sleep 5; done
+- apt-mark hold walinuxagent
 - apt-get update
 - apt-get install -y apt-transport-https ca-certificates
 - for i in 1 2 3 4 5; do curl --max-time 60 -fsSL https://aptdocker.azureedge.net/gpg | apt-key add -; [ $? -eq 0 ] && break || sleep 5; done
@@ -287,4 +296,5 @@ runcmd:
 - mkdir -p /etc/kubernetes/manifests
 - usermod -aG docker {{WrapAsVariable "username"}}
 - /usr/lib/apt/apt.systemd.daily
+- apt-mark unhold walinuxagent
 - touch /opt/azure/containers/runcmd.complete

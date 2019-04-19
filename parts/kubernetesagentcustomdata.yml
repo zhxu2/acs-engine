@@ -1,6 +1,14 @@
 #cloud-config
 
 write_files:
+- path: /etc/apt/preferences
+  permissions: "0644"
+  owner: root
+  content: |
+    Package: walinuxagent
+    Pin: version 2.2.32.2
+    Pin-Priority: 550
+
 - path: "/etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf"
   permissions: "0644"
   owner: "root"
@@ -139,6 +147,7 @@ write_files:
     {{WrapAsVariable "agentProvisionScript"}}
 
 runcmd:
+- apt-mark hold walinuxagent
 - apt-get update
 - apt-get install -y apt-transport-https ca-certificates nfs-common
 - systemctl enable rpcbind
@@ -155,4 +164,5 @@ runcmd:
 - mkdir -p /etc/kubernetes/manifests
 - usermod -aG docker {{WrapAsVariable "username"}}
 - /usr/lib/apt/apt.systemd.daily
+- apt-mark unhold walinuxagent
 - touch /opt/azure/containers/runcmd.complete
