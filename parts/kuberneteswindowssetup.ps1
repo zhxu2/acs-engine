@@ -77,6 +77,7 @@ Expand-ZIPFile($file, $destination)
 function
 Get-KubeBinaries()
 {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $zipfile = "c:\k.zip"
     Invoke-WebRequest -Uri $global:KubeBinariesSASURL -OutFile $zipfile
     Expand-ZIPFile -File $zipfile -Destination C:\
@@ -132,6 +133,8 @@ function
 New-InfraContainer()
 {
     cd $global:KubeDir
+    "FROM microsoft/windowsservercore:ltsc2016" | Out-File -encoding ascii -FilePath Dockerfile
+    "CMD cmd /c ping -t localhost" | Out-File -encoding ascii -FilePath Dockerfile -Append
     docker build -t kubletwin/pause . 
 }
 
