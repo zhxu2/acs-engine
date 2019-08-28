@@ -78,3 +78,25 @@ Set-AzureCNIConfig
 
     $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
 }
+
+
+function DeployCNSServiceAndLinkToKubelet()
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $AzureCNIBinDir,
+        [Parameter(Mandatory=$true)][string]
+        $VNetCNSPluginsURL
+    )
+    $output = "$PSScriptRoot\azure-vnet-cns.zip"
+
+    Invoke-WebRequest -Uri $VNetCNSPluginsURL -OutFile $output
+    Expand-Archive -Path $output -DestinationPath $AzureCNIBinDir
+
+    $global:AzureCNS = [Io.path]::Combine("$global:AzureCNIBinDir", "azure-cns.exe")
+    New-Service -Name "CNSService" -BinaryPathName $global:AzureCNS
+    sc.exe failure "CNSService" actions= restart/60000/restart/60000/restart/60000 reset= 900
+
+    $value = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" | Select-Object -ExpandProperty "DependOnService" -ErrorAction Stop
+    Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" -Name "DependOnService" -Value "$value\0CNSService"
+}
