@@ -78,3 +78,47 @@ Set-AzureCNIConfig
 
     $configJson | ConvertTo-Json -depth 20 | Out-File -encoding ASCII -filepath $fileName
 }
+
+
+function DeployCNSServiceAndLinkToKubelet()
+{
+    Param(
+        [Parameter(Mandatory=$true)][string]
+        $KubeDir,
+        [Parameter(Mandatory=$true)][string]
+        $AzureCNIBinDir,
+        [Parameter(Mandatory=$true)][string]
+        $VNetCNSPluginsURL
+    )
+    $output = "$PSScriptRoot\azure-vnet-cns.zip"
+
+    Invoke-WebRequest -Uri $VNetCNSPluginsURL -OutFile $output
+    Expand-Archive -Path $output -DestinationPath $AzureCNIBinDir
+
+    $AzureCNS = [Io.path]::Combine("$AzureCNIBinDir", "azure-cns.exe")
+    $AzureCNSStartFile = [Io.path]::Combine("$AzureCNIBinDir", "startazurecns.ps1")
+
+    $azureCNSstartStr = "$AzureCNS -c tcp://0.0.0.0:10090"
+    $azureCNSstartStr | Out-File -encoding ASCII -filepath $AzureCNSStartFile
+
+    "$KubeDir\nssm.exe" install CNSService C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    & "$KubeDir\nssm.exe" set CNSService AppDirectory $AzureCNIBinDir
+    & "$KubeDir\nssm.exe" set CNSService AppParameters $AzureCNSStartFile
+    & "$KubeDir\nssm.exe" set CNSService DisplayName CNSService
+    & "$KubeDir\nssm.exe" set CNSService Description CNSService
+    & "$KubeDir\nssm.exe" set CNSService Start SERVICE_AUTO_START
+    & "$KubeDir\nssm.exe" set CNSService ObjectName LocalSystem
+    & "$KubeDir\nssm.exe" set CNSService Type SERVICE_WIN32_OWN_PROCESS
+    & "$KubeDir\nssm.exe" set CNSService AppThrottle 1500
+    & "$KubeDir\nssm.exe" set CNSService AppStdoutCreationDisposition 4
+    & "$KubeDir\nssm.exe" set CNSService AppStderrCreationDisposition 4
+    & "$KubeDir\nssm.exe" set CNSService AppRotateFiles 1
+    & "$KubeDir\nssm.exe" set CNSService AppRotateOnline 1
+    & "$KubeDir\nssm.exe" set CNSService AppRotateSeconds 86400
+    & "$KubeDir\nssm.exe" set CNSService AppRotateBytes 1048576
+
+    sc.exe failure "CNSService" actions= restart/60000/restart/60000/restart/60000 reset= 900
+
+    $value = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" | Select-Object -ExpandProperty "DependOnService" -ErrorAction Stop
+    Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" -Name "DependOnService" -Value "$value\0CNSService"
+}

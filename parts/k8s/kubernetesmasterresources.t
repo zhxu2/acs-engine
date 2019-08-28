@@ -256,7 +256,10 @@
           "id": "[variables('masterLbIPConfigID')]"
         },
         "frontendPort": "[variables('sshNatPorts')[copyIndex(variables('masterOffset'))]]",
-        "protocol": "Tcp"
+        "protocol": "Tcp",
+        "backendIPConfiguration": {
+          "id": "[concat(resourceId('Microsoft.Network/networkInterfaces',concat(variables('masterVMNamePrefix'),'nic-', copyIndex(variables('masterOffset')))), '/ipConfigurations/ipconfig1')]"
+        }
       },
       "type": "Microsoft.Network/loadBalancers/inboundNatRules"
     },
