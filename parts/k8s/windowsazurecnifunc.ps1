@@ -101,7 +101,7 @@ function DeployCNSServiceAndLinkToKubelet()
     $azureCNSstartStr = "$AzureCNS -c tcp://0.0.0.0:10090"
     $azureCNSstartStr | Out-File -encoding ASCII -filepath $AzureCNSStartFile
 
-    "$KubeDir\nssm.exe" install CNSService C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+    & "$KubeDir\nssm.exe" install CNSService C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
     & "$KubeDir\nssm.exe" set CNSService AppDirectory $AzureCNIBinDir
     & "$KubeDir\nssm.exe" set CNSService AppParameters $AzureCNSStartFile
     & "$KubeDir\nssm.exe" set CNSService DisplayName CNSService
@@ -122,3 +122,4 @@ function DeployCNSServiceAndLinkToKubelet()
     $value = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" | Select-Object -ExpandProperty "DependOnService" -ErrorAction Stop
     Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\kubelet" -Name "DependOnService" -Value "$value\0CNSService"
 }
+
