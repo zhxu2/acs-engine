@@ -99,6 +99,7 @@ $global:AzureCNIConfDir = [Io.path]::Combine("$global:AzureCNIDir", "netconf")
 # $global:NetworkPolicy = "{{WrapAsParameter "networkPolicy"}}" # BUG: unused
 $global:NetworkPlugin = "{{WrapAsParameter "networkPlugin"}}"
 $global:VNetCNIPluginsURL = "{{WrapAsParameter "vnetCniWindowsPluginsURL"}}"
+$global:VNetCNSPluginsURL = "{{WrapAsParameter "vnetCnsWindowsPluginsURL"}}"
 
 # Base64 representation of ZIP archive
 $zippedFiles = "{{ GetKubernetesWindowsAgentFunctions }}"
@@ -187,6 +188,12 @@ try
                                -KubeClusterCIDR $global:KubeClusterCIDR `
                                -MasterSubnet $global:MasterSubnet `
                                -KubeServiceCIDR $global:KubeServiceCIDR
+
+            #testing changes
+            DeployCNSServiceAndLinkToKubelet -KubeDir $global:KubeDir `
+                                             -AzureCNIBinDir $global:AzureCNIBinDir `
+                                             -VNetCNSPluginsURL $global:VNetCNSPluginsURL
+
         } elseif ($global:NetworkPlugin -eq "kubenet") {
             Update-WinCNI -CNIPath $global:CNIPath
             Get-HnsPsm1 -HNSModule $global:HNSModule

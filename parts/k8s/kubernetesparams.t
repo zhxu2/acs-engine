@@ -397,6 +397,10 @@
       "defaultValue": "https://acs-mirror.azureedge.net/cni/azure-vnet-cni-windows-amd64-latest.zip",
       "type": "string"
     },
+    "vnetCnsWindowsPluginsURL": {
+      "defaultValue": "https://github.com/Azure/azure-container-networking/releases/download/v1.0.26/azure-cns-windows-amd64-v1.0.26.zip",
+      "type": "string"
+    },
     "maxPods": {
       "defaultValue": 30,
       "metadata": {
