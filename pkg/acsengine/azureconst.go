@@ -45,6 +45,8 @@ var AzureLocations = []string{
 	"usgovarizona",
 	"usgovtexas",
 	"francecentral",
+	"usnatwest",
+	"usnateast",
 }
 
 // GetDCOSMasterAllowedSizes returns the master allowed sizes

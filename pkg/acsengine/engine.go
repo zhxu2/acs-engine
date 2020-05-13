@@ -95,6 +95,7 @@ const (
 	azureChinaCloud        = "AzureChinaCloud"
 	azureGermanCloud       = "AzureGermanCloud"
 	azureUSGovernmentCloud = "AzureUSGovernmentCloud"
+	azureUSNatCloud        = "AzureUSNatCloud"
 )
 
 var commonTemplateFiles = []string{agentOutputs, agentParams, classicParams, masterOutputs, iaasOutputs, masterParams, windowsParams}
@@ -376,6 +377,8 @@ func FormatAzureProdFQDN(fqdnPrefix string, location string) string {
 		FQDNFormat = AzureGermanCloudSpec.EndpointConfig.ResourceManagerVMDNSSuffix
 	case azureUSGovernmentCloud:
 		FQDNFormat = AzureUSGovernmentCloud.EndpointConfig.ResourceManagerVMDNSSuffix
+	case azureUSNatCloud:
+		FQDNFormat = AzureUSNatCloudSpec.EndpointConfig.ResourceManagerVMDNSSuffix
 	default:
 		FQDNFormat = AzureCloudSpec.EndpointConfig.ResourceManagerVMDNSSuffix
 	}
@@ -427,6 +430,8 @@ func GetCloudTargetEnv(location string) string {
 		return azureGermanCloud
 	case strings.HasPrefix(loc, "usgov") || strings.HasPrefix(loc, "usdod"):
 		return azureUSGovernmentCloud
+	case strings.HasPrefix(loc, "usnat"):
+		return azureUSNatCloud
 	default:
 		return azurePublicCloud
 	}
