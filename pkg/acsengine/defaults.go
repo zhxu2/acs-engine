@@ -158,6 +158,27 @@ var (
 		},
 	}
 
+	//AzureUSSecCloudSpec is the configurations for Azure US Rx
+	AzureUSSecCloudSpec = AzureEnvironmentSpecConfig{
+		DockerSpecConfig:     DefaultDockerSpecConfig,
+		KubernetesSpecConfig: DefaultKubernetesSpecConfig,
+		DCOSSpecConfig:       DefaultDCOSSpecConfig,
+
+		EndpointConfig: AzureEndpointConfig{
+			ResourceManagerVMDNSSuffix: "cloudapp.azure.microsoft.scloud",
+		},
+		OSImageConfig: map[api.Distro]AzureOSImageConfig{
+			api.Ubuntu: {
+				ImageOffer:     "UbuntuServer",
+				ImageSku:       "16.04-LTS",
+				ImagePublisher: "Canonical",
+				ImageVersion:   "16.04.201909100",
+			},
+			api.RHEL:   DefaultRHELOSImageConfig,
+			api.CoreOS: DefaultCoreOSImageConfig,
+		},
+	}
+
 	//AzureChinaCloudSpec is the configurations for Azure China (Mooncake)
 	AzureChinaCloudSpec = AzureEnvironmentSpecConfig{
 		//DockerSpecConfig specify the docker engine download repo
