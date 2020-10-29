@@ -475,7 +475,7 @@ function setupCRIO() {
 	# Configure /etc/crio/crio.conf
 	CRI_O_CONFIG="/etc/crio/crio.conf"
 	sed -i 's#storage_driver = ""#storage_driver = "devicemapper"#' "$CRI_O_CONFIG"
-	sed -i 's#storage_option = \[#storage_option = \["dm.directlvm_device=/dev/sdc", "dm.thinp_percent=95", "dm.thinp_metapercent=1", "dm.thinp_autoextend_threshold=80", "dm.thinp_autoextend_percent=20", "dm.directlvm_device_force=true"#' "$CRI_O_CONFIG"
+	sed -i 's#storage_option = \[#storage_option = \["dm.directlvm_device=/dev/sdf", "dm.thinp_percent=95", "dm.thinp_metapercent=1", "dm.thinp_autoextend_threshold=80", "dm.thinp_autoextend_percent=20", "dm.directlvm_device_force=true"#' "$CRI_O_CONFIG"
 	sed -i 's#runtime = "/usr/bin/runc"#runtime = "/usr/local/sbin/runc"#' "$CRI_O_CONFIG"
 	sed -i 's#runtime_untrusted_workload = ""#runtime_untrusted_workload = "/usr/bin/cc-runtime"#' "$CRI_O_CONFIG"
 	sed -i 's#default_workload_trust = "trusted"#default_workload_trust = "untrusted"#' "$CRI_O_CONFIG"
@@ -623,20 +623,20 @@ function ensureEtcd() {
 }
 
 function ensureEtcdDataDir() {
-    mount | grep /dev/sdc1 | grep /var/lib/etcddisk
+    mount | grep /dev/sdf1 | grep /var/lib/etcddisk
     if [ "$?" = "0" ]
     then
         echo "Etcd is running with data dir at: /var/lib/etcddisk"
         return
     else
-        echo "/var/lib/etcddisk was not found at /dev/sdc1. Trying to mount all devices."
+        echo "/var/lib/etcddisk was not found at /dev/sdf1. Trying to mount all devices."
         s = 5
         for i in {1..60}; do
-            sudo mount -a && mount | grep /dev/sdc1 | grep /var/lib/etcddisk;
+            sudo mount -a && mount | grep /dev/sdf1 | grep /var/lib/etcddisk;
             if [ "$?" = "0" ]
             then
                 (( t = ${i} * ${s} ))
-                echo "/var/lib/etcddisk mounted at: /dev/sdc1, took $t seconds"
+                echo "/var/lib/etcddisk mounted at: /dev/sdf1, took $t seconds"
                 return
             fi
             sleep $s
