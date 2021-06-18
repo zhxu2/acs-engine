@@ -484,6 +484,9 @@ func setOrchestratorDefaults(cs *api.ContainerService) {
 
 		if a.OrchestratorProfile.KubernetesConfig.EnableRbac == nil {
 			a.OrchestratorProfile.KubernetesConfig.EnableRbac = pointerToBool(api.DefaultRBACEnabled)
+
+
+
 		}
 
 		if a.OrchestratorProfile.KubernetesConfig.EnableSecureKubelet == nil {
@@ -574,13 +577,6 @@ func setMasterNetworkDefaults(a *api.Properties, isUpgrade bool) {
 	if a.MasterProfile.IPAddressCount == 0 {
 		// Allocate one IP address for the node.
 		a.MasterProfile.IPAddressCount = 1
-
-		// Allocate IP addresses for pods if VNET integration is enabled.
-		if a.OrchestratorProfile.IsAzureCNI() {
-			if a.OrchestratorProfile.OrchestratorType == api.Kubernetes {
-				a.MasterProfile.IPAddressCount += a.OrchestratorProfile.KubernetesConfig.MaxPods
-			}
-		}
 	}
 
 	if a.MasterProfile.HTTPSourceAddressPrefix == "" {
@@ -618,13 +614,6 @@ func setAgentNetworkDefaults(a *api.Properties) {
 		if profile.IPAddressCount == 0 {
 			// Allocate one IP address for the node.
 			profile.IPAddressCount = 1
-
-			// Allocate IP addresses for pods if VNET integration is enabled.
-			if a.OrchestratorProfile.IsAzureCNI() {
-				if a.OrchestratorProfile.OrchestratorType == api.Kubernetes {
-					profile.IPAddressCount += a.OrchestratorProfile.KubernetesConfig.MaxPods
-				}
-			}
 		}
 	}
 }
